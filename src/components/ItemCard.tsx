@@ -6,15 +6,25 @@ import { amountLabel } from '../lib/money';
 import { formatRelative } from '../lib/dates';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
-import { CHECKABLE, TYPE_INFO, type Item } from '../lib/types';
+import { CHECKABLE, TYPE_INFO, type Item, type ItemType } from '../lib/types';
+
+const UNSCHEDULED = { bg: '#FFF7E8', border: '#F3C677', text: '#A15C07' };
+const UNSCHEDULED_LABEL: Partial<Record<ItemType, string>> = {
+  lavoro: 'Da organizzare',
+  todo: 'Da organizzare',
+  sopralluogo: 'Data da concordare',
+};
 
 export function ItemCard({ item, showDate = false }: { item: Item; showDate?: boolean }) {
   const { toggleDone } = useStore();
   const info = TYPE_INFO[item.type];
   const checkable = CHECKABLE.includes(item.type);
+  // Lavori e sopralluoghi ancora senza data: evidenziati con un colore diverso.
+  const quoteToDo = item.type === 'preventivo' && !item.quote && !item.done && !!item.visitId;
+  const unscheduled = !item.date && !item.done && UNSCHEDULED_LABEL[item.type] !== undefined;
 
   const meta = [
-    showDate && item.date ? formatRelative(item.date) : !item.date && item.type === 'sopralluogo' ? 'Data da concordare' : null,
+    showDate && item.date ? formatRelative(item.date) : null,
     item.time,
     amountLabel(item),
     info.label,
@@ -27,9 +37,11 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
       onPress={() =>
         item.quote
           ? router.push({ pathname: '/preventivo-doc', params: { id: item.id } })
-          : router.push({ pathname: '/item', params: { id: item.id } })
+          : quoteToDo
+            ? router.push({ pathname: '/preventivo', params: { from: item.id } })
+            : router.push({ pathname: '/item', params: { id: item.id } })
       }
-      style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [styles.card, unscheduled && styles.unscheduled, pressed && { opacity: 0.7 }]}
       accessibilityRole="button"
       accessibilityLabel={`${info.label}: ${item.title}`}
     >
@@ -52,6 +64,18 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
             {item.description}
           </Text>
         ) : null}
+        {quoteToDo ? (
+          <View style={[styles.pill, { backgroundColor: '#FBEFC5' }]}>
+            <Ionicons name="create-outline" size={12} color="#8A6A00" />
+            <Text style={[styles.pillText, { color: '#8A6A00' }]}>Da preparare · dal sopralluogo</Text>
+          </View>
+        ) : null}
+        {unscheduled ? (
+          <View style={styles.pill}>
+            <Ionicons name="time-outline" size={12} color={UNSCHEDULED.text} />
+            <Text style={styles.pillText}>{UNSCHEDULED_LABEL[item.type]}</Text>
+          </View>
+        ) : null}
         <Text style={styles.meta}>{meta}</Text>
       </View>
       <View style={styles.avatar}>
@@ -72,6 +96,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
+  unscheduled: { backgroundColor: UNSCHEDULED.bg, borderColor: UNSCHEDULED.border, borderStyle: 'dashed', borderWidth: 1 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: '#FDE9C4', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginTop: 5 },
+  pillText: { fontSize: 11, fontWeight: '700', color: UNSCHEDULED.text },
   bar: { width: 4 },
   check: { paddingHorizontal: 12, justifyContent: 'center' },
   body: { flex: 1, paddingVertical: 12, paddingRight: 8 },

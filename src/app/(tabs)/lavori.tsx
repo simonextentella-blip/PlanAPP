@@ -10,12 +10,12 @@ import { colors } from '../../lib/theme';
 import { TYPE_INFO } from '../../lib/types';
 
 type Kind = 'tutti' | 'lavoro' | 'todo';
-type Status = 'programmati' | 'organizzare' | 'completati';
+type Status = 'tutti' | 'programmati' | 'organizzare' | 'completati';
 
 export default function JobsScreen() {
   const { items } = useStore();
   const [kind, setKind] = useState<Kind>('tutti');
-  const [status, setStatus] = useState<Status>('programmati');
+  const [status, setStatus] = useState<Status>('tutti');
 
   const list = useMemo(
     () =>
@@ -24,6 +24,7 @@ export default function JobsScreen() {
         if (kind !== 'tutti' && it.type !== kind) return false;
         if (status === 'completati') return it.done;
         if (it.done) return false;
+        if (status === 'tutti') return true;
         return status === 'organizzare' ? !it.date : !!it.date;
       }),
     [items, kind, status],
@@ -33,6 +34,7 @@ export default function JobsScreen() {
   const count = { programmati: jobs.filter((it) => it.date).length, organizzare: jobs.filter((it) => !it.date).length };
 
   const empty = {
+    tutti: 'Nessun lavoro in sospeso. Tocca + per aggiungerne uno.',
     programmati: 'Nessun lavoro con data. Tocca + per aggiungerne uno.',
     organizzare: 'Niente da organizzare. Qui finiscono i lavori di cui non si conosce ancora la data.',
     completati: 'Nessun lavoro completato.',
@@ -42,6 +44,7 @@ export default function JobsScreen() {
     <View style={styles.container}>
       <View style={styles.filters}>
         <View style={styles.row}>
+          <Chip label={`Tutti${jobs.length ? ` (${jobs.length})` : ''}`} active={status === 'tutti'} onPress={() => setStatus('tutti')} />
           <Chip label={`Programmati${count.programmati ? ` (${count.programmati})` : ''}`} active={status === 'programmati'} onPress={() => setStatus('programmati')} />
           <Chip label={`Da organizzare${count.organizzare ? ` (${count.organizzare})` : ''}`} active={status === 'organizzare'} onPress={() => setStatus('organizzare')} />
           <Chip label="Completati" active={status === 'completati'} onPress={() => setStatus('completati')} />

@@ -15,9 +15,12 @@ const ACCENT = brand.green;
 const VALIDITY = [30, 60, 90];
 
 export default function QuoteEditor() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, from } = useLocalSearchParams<{ id?: string; from?: string }>();
   const { items, getItem, addItem, updateItem } = useStore();
   const existing = id ? getItem(id) : undefined;
+  // Preventivo "da fare" creato da un sopralluogo: lo completiamo invece di crearne uno nuovo.
+  const todo = from ? getItem(from) : undefined;
+  const visit = todo?.visitId ? getItem(todo.visitId) : undefined;
   const q: Quote | null = existing?.quote ? normalizeQuote(existing.quote as never) : null;
 
   const [number, setNumber] = useState(q?.number || nextQuoteNumber(items, new Date().getFullYear()));
@@ -25,6 +28,7 @@ export default function QuoteEditor() {
   const [validity, setValidity] = useState(q?.validityDays ?? 60);
   const [client, setClient] = useState(q?.client ?? { name: '', address: '', cityLine: '', taxId: '', site: '' });
   const [subject, setSubject] = useState(q?.subject ?? '');
+  const visitNote = todo ? [todo.title, todo.description].filter(Boolean).join(' — ') : '';
   const [team, setTeam] = useState<QuoteTeamRow[]>(q?.team ?? DEFAULT_TEAM());
   const [works, setWorks] = useState<QuoteWork[]>(q?.works.length ? q.works : [{ id: uid(), title: 'Allestimento cantiere', description: '', qty: 'a corpo' }]);
   const [total, setTotal] = useState(q && q.total ? formatEuro(q.total).replace('€ ', '') : '');
@@ -74,6 +78,9 @@ export default function QuoteEditor() {
     if (existing) {
       updateItem(existing.id, data);
       router.back();
+    } else if (todo) {
+      updateItem(todo.id, { ...data, visitId: todo.visitId });
+      router.replace({ pathname: '/preventivo-doc', params: { id: todo.id } });
     } else {
       const created = addItem(data);
       router.replace({ pathname: '/preventivo-doc', params: { id: created.id } });
@@ -93,6 +100,16 @@ export default function QuoteEditor() {
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {todo ? (
+          <View style={styles.fromVisit}>
+            <Ionicons name="location-outline" size={18} color={brand.dark} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fromVisitTitle}>Dal sopralluogo{visit?.date ? ` del ${formatShort(visit.date)}` : ''}</Text>
+              <Text style={styles.fromVisitText}>{visitNote}</Text>
+            </View>
+          </View>
+        ) : null}
+
         <Card title="Preventivo">
           <Field label="Numero">
             <TextInput value={number} onChangeText={setNumber} style={styles.input} />
@@ -244,6 +261,9 @@ function Add({ label, onPress }: { label: string; onPress: () => void }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
+  fromVisit: { flexDirection: 'row', gap: 10, backgroundColor: brand.light, borderRadius: 12, padding: 12, borderLeftWidth: 4, borderColor: brand.green },
+  fromVisitTitle: { fontSize: 13, fontWeight: '700', color: brand.dark },
+  fromVisitText: { fontSize: 14, color: colors.text, marginTop: 2 },
   content: { padding: 16, gap: 14, paddingBottom: 48 },
   headerBtn: { fontSize: 17, color: ACCENT, fontWeight: '700', paddingHorizontal: 12 },
   card: { backgroundColor: colors.card, borderRadius: 14, padding: 14, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

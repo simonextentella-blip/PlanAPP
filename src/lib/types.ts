@@ -18,6 +18,8 @@ export interface Item {
   direction?: Direction | null;
   /** Solo per Preventivi creati con il modulo completo. */
   quote?: Quote | null;
+  /** Preventivo nato da un sopralluogo fatto: id del sopralluogo. */
+  visitId?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

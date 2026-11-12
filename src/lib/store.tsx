@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { loadCompany, localRepository, loadProfileName, saveCompany, saveProfileName, type ItemRepository } from './repository';
 import { DEFAULT_COMPANY, type Company, type Item, type NewItem } from './types';
 
@@ -22,6 +22,41 @@ function newId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Quando un sopralluogo viene segnato come fatto, crea un preventivo "da fare" collegato.
+ * Se il sopralluogo torna da fare (o viene eliminato) e il preventivo non è ancora stato compilato, lo toglie.
+ */
+export function linkVisitsToQuotes(prev: Item[], next: Item[], author: string): Item[] {
+  const before = new Map(prev.map((it) => [it.id, it]));
+  const doneVisits = new Set(next.filter((it) => it.type === 'sopralluogo' && it.done).map((it) => it.id));
+  let out = next.filter((it) => !(it.visitId && !it.quote && !it.done && !doneVisits.has(it.visitId)));
+  const now = new Date().toISOString();
+  for (const v of next) {
+    if (v.type !== 'sopralluogo' || !v.done || before.get(v.id)?.done) continue;
+    if (out.some((it) => it.visitId === v.id)) continue;
+    out = [
+      ...out,
+      {
+        id: newId(),
+        type: 'preventivo',
+        title: v.title,
+        description: v.description,
+        date: null,
+        time: null,
+        done: false,
+        amount: null,
+        direction: null,
+        quote: null,
+        visitId: v.id,
+        createdBy: author,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+  }
+  return out;
+}
+
 /** Ordina per data, poi orario (senza orario prima), poi data di creazione. */
 export function compareItems(a: Item, b: Item): number {
   const da = a.date ?? '9999-99-99';
@@ -38,6 +73,8 @@ export function StoreProvider({ children, repository = localRepository }: { chil
   const [items, setItems] = useState<Item[]>([]);
   const [userName, setUserNameState] = useState('');
   const [company, setCompanyState] = useState<Company>(DEFAULT_COMPANY);
+  const userRef = useRef('');
+  userRef.current = userName;
 
   useEffect(() => {
     Promise.all([repository.loadAll(), loadProfileName(), loadCompany()])
@@ -55,7 +92,7 @@ export function StoreProvider({ children, repository = localRepository }: { chil
   const commit = useCallback(
     (updater: (prev: Item[]) => Item[]) => {
       setItems((prev) => {
-        const next = updater(prev);
+        const next = linkVisitsToQuotes(prev, updater(prev), userRef.current || 'Io');
         repository.saveAll(next).catch(() => {});
         return next;
       });

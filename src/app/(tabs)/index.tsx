@@ -86,6 +86,13 @@ function Tile({ type, title, line }: { type: ItemType; title: string; line: stri
   );
 }
 
+function quoteLine(open: Item[]) {
+  const toDo = open.filter((it) => !it.quote && it.visitId).length;
+  const waiting = open.length - toDo;
+  const parts = [toDo ? `${toDo} da fare` : '', waiting ? `${waiting} in attesa` : ''].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'Nessuno in sospeso';
+}
+
 function plural(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`;
 }
@@ -141,7 +148,7 @@ export default function HomeScreen() {
         <Tile
           type="preventivo"
           title="Preventivi"
-          line={pendingQuotes.length ? `${plural(pendingQuotes.length, 'in attesa', 'in attesa')}` : 'Nessuno in attesa'}
+          line={quoteLine(pendingQuotes)}
         />
         <Tile type="soldi" title="Soldi" line={`Saldo del mese ${formatEuro(money.saldo)}`} />
       </View>

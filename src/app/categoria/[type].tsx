@@ -25,9 +25,12 @@ export default function CategoryScreen() {
   const { items } = useStore();
   const [month, setMonth] = useState(todayISO().slice(0, 7));
   const [showDone, setShowDone] = useState(false);
-  /** Solo Sopralluoghi: mostra quelli con data da concordare. */
-  const [toAgree, setToAgree] = useState(false);
+  /** Solo Sopralluoghi: tutti, programmati o con data da concordare. */
+  const [visitFilter, setVisitFilter] = useState<'tutti' | 'programmati' | 'concordare'>('tutti');
+  const toAgree = visitFilter === 'concordare';
   const isVisit = type === 'sopralluogo';
+  const isQuote = type === 'preventivo';
+  const [quoteFilter, setQuoteFilter] = useState<'dafare' | 'attesa' | 'accettati'>('dafare');
 
   const isMoney = type === 'soldi';
 
@@ -36,15 +39,23 @@ export default function CategoryScreen() {
       items.filter((it) => {
         if (it.type !== type) return false;
         if (isMoney) return it.date == null || it.date.startsWith(month);
+        if (isQuote) {
+          if (quoteFilter === 'accettati') return it.done;
+          if (it.done) return false;
+          const toDo = !it.quote && !!it.visitId;
+          return quoteFilter === 'dafare' ? toDo : !toDo;
+        }
         if (it.done !== showDone) return false;
-        if (isVisit && !showDone) return toAgree ? !it.date : !!it.date;
+        if (isVisit && !showDone && visitFilter !== 'tutti') return toAgree ? !it.date : !!it.date;
         return true;
       }),
-    [items, type, isMoney, isVisit, month, showDone, toAgree],
+    [items, type, isMoney, isVisit, isQuote, quoteFilter, month, showDone, visitFilter, toAgree],
   );
 
   const openVisits = items.filter((it) => it.type === 'sopralluogo' && !it.done);
-  const visitCount = { planned: openVisits.filter((it) => it.date).length, toAgree: openVisits.filter((it) => !it.date).length };
+  const visitCount = { all: openVisits.length, planned: openVisits.filter((it) => it.date).length, toAgree: openVisits.filter((it) => !it.date).length };
+  const openQuotes = items.filter((it) => it.type === 'preventivo' && !it.done);
+  const quoteCount = { toDo: openQuotes.filter((it) => !it.quote && it.visitId).length, pending: openQuotes.filter((it) => it.quote || !it.visitId).length };
   const t = totals(list);
   const quoteTotal = list.reduce((s, it) => s + (it.amount ?? 0), 0);
   const [y, m] = month.split('-').map(Number);
@@ -75,17 +86,26 @@ export default function CategoryScreen() {
         ) : (
           <>
             <View style={styles.chips}>
-              {isVisit ? (
+              {isQuote ? (
                 <>
-                  <Chip label={`Programmati${visitCount.planned ? ` (${visitCount.planned})` : ''}`} color={info.color} active={!showDone && !toAgree} onPress={() => (setShowDone(false), setToAgree(false))} />
-                  <Chip label={`Da concordare${visitCount.toAgree ? ` (${visitCount.toAgree})` : ''}`} color={info.color} active={!showDone && toAgree} onPress={() => (setShowDone(false), setToAgree(true))} />
+                  <Chip label={`Da fare${quoteCount.toDo ? ` (${quoteCount.toDo})` : ''}`} color={info.color} active={quoteFilter === 'dafare'} onPress={() => setQuoteFilter('dafare')} />
+                  <Chip label={`In attesa${quoteCount.pending ? ` (${quoteCount.pending})` : ''}`} color={info.color} active={quoteFilter === 'attesa'} onPress={() => setQuoteFilter('attesa')} />
+                  <Chip label="Accettati" color={info.color} active={quoteFilter === 'accettati'} onPress={() => setQuoteFilter('accettati')} />
+                </>
+              ) : isVisit ? (
+                <>
+                  <Chip label={`Tutti${visitCount.all ? ` (${visitCount.all})` : ''}`} color={info.color} active={!showDone && visitFilter === 'tutti'} onPress={() => (setShowDone(false), setVisitFilter('tutti'))} />
+                  <Chip label={`Programmati${visitCount.planned ? ` (${visitCount.planned})` : ''}`} color={info.color} active={!showDone && visitFilter === 'programmati'} onPress={() => (setShowDone(false), setVisitFilter('programmati'))} />
+                  <Chip label={`Da concordare${visitCount.toAgree ? ` (${visitCount.toAgree})` : ''}`} color={info.color} active={!showDone && toAgree} onPress={() => (setShowDone(false), setVisitFilter('concordare'))} />
                 </>
               ) : (
-                <Chip label={type === 'preventivo' ? 'In attesa' : 'Da fare'} color={info.color} active={!showDone} onPress={() => setShowDone(false)} />
+                <Chip label="Da fare" color={info.color} active={!showDone} onPress={() => setShowDone(false)} />
               )}
-              <Chip label={type === 'preventivo' ? 'Accettati' : type === 'sopralluogo' ? 'Fatti' : `${doneLabel(type)}`} color={info.color} active={showDone} onPress={() => setShowDone(true)} />
+              {!isQuote ? (
+                <Chip label={type === 'sopralluogo' ? 'Fatti' : `${doneLabel(type)}`} color={info.color} active={showDone} onPress={() => setShowDone(true)} />
+              ) : null}
             </View>
-            {type === 'preventivo' ? (
+            {isQuote && quoteFilter !== 'dafare' ? (
               <Text style={styles.summary}>
                 {list.length} {list.length === 1 ? 'preventivo' : 'preventivi'} · totale {formatEuro(quoteTotal)}
               </Text>
@@ -97,7 +117,7 @@ export default function CategoryScreen() {
         data={list}
         keyExtractor={(it) => it.id}
         renderItem={({ item }) => <ItemCard item={item} showDate />}
-        ListEmptyComponent={<EmptyState text={isVisit && toAgree && !showDone ? 'Nessun sopralluogo da concordare. Tocca + per aggiungerne uno senza data.' : `Niente qui. Tocca + per aggiungere: ${info.label.toLowerCase()}.`} />}
+        ListEmptyComponent={<EmptyState text={isQuote && quoteFilter === 'dafare' ? 'Nessun preventivo da preparare. Quando segni un sopralluogo come fatto, il preventivo da preparare compare qui.' : isVisit && toAgree && !showDone ? 'Nessun sopralluogo da concordare. Tocca + per aggiungerne uno senza data.' : `Niente qui. Tocca + per aggiungere: ${info.label.toLowerCase()}.`} />}
         contentContainerStyle={{ paddingTop: 6, paddingBottom: 100 }}
       />
       <Fab label={`Nuovo: ${info.label}`} onPress={() => (type === 'preventivo' ? router.push('/preventivo') : router.push({ pathname: '/item', params: isVisit && toAgree && !showDone ? { type, nodate: '1' } : { type } }))} />
