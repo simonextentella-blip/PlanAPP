@@ -7,7 +7,18 @@ import { Chip } from '../components/Chip';
 import { addDays, formatRelative, isValidTime, normalizeTime, todayISO } from '../lib/dates';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
-import { CHECKABLE, ITEM_TYPES, TYPE_INFO, type ItemType } from '../lib/types';
+import { formatEuro, parseEuro } from '../lib/money';
+import { CHECKABLE, doneLabel, ITEM_TYPES, TYPE_INFO, WITH_AMOUNT, type Direction, type ItemType } from '../lib/types';
+
+const PLACEHOLDERS: Record<ItemType, string> = {
+  appuntamento: 'Es. Incontro con il cliente Rossi',
+  sopralluogo: 'Es. Sopralluogo via Roma 12',
+  lavoro: 'Es. Installazione impianto',
+  todo: 'Es. Ordinare materiale',
+  nota: 'Es. Promemoria',
+  soldi: 'Es. Acconto cliente Bianchi',
+  preventivo: 'Es. Preventivo bagno Verdi',
+};
 
 export default function ItemScreen() {
   const params = useLocalSearchParams<{ id?: string; date?: string; type?: ItemType }>();
@@ -20,6 +31,8 @@ export default function ItemScreen() {
   const [date, setDate] = useState<string | null>(existing ? existing.date : params.date ?? (params.type === 'nota' ? null : todayISO()));
   const [time, setTime] = useState(existing?.time ?? '');
   const [done, setDone] = useState(existing?.done ?? false);
+  const [amount, setAmount] = useState(existing?.amount != null ? formatEuro(existing.amount).replace('€ ', '') : '');
+  const [direction, setDirection] = useState<Direction>(existing?.direction ?? 'entrata');
   const [showCalendar, setShowCalendar] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -32,6 +45,9 @@ export default function ItemScreen() {
     if (!t) return setError('Scrivi un titolo.');
     const tm = time.trim();
     if (tm && !isValidTime(tm)) return setError('Orario non valido: usa il formato 09:30.');
+    const hasAmount = WITH_AMOUNT.includes(type);
+    const parsed = hasAmount ? parseEuro(amount) : null;
+    if (hasAmount && amount.trim() && parsed == null) return setError('Importo non valido: scrivi ad esempio 1250,00.');
     const data = {
       type,
       title: t,
@@ -39,6 +55,8 @@ export default function ItemScreen() {
       date,
       time: tm && date ? normalizeTime(tm) : null,
       done: CHECKABLE.includes(type) ? done : false,
+      amount: parsed,
+      direction: type === 'soldi' ? direction : null,
     };
     if (existing) updateItem(existing.id, data);
     else addItem(data);
@@ -97,7 +115,7 @@ export default function ItemScreen() {
               setTitle(v);
               setError('');
             }}
-            placeholder={type === 'appuntamento' ? 'Es. Sopralluogo da Rossi' : type === 'lavoro' ? 'Es. Installazione impianto' : type === 'todo' ? 'Es. Ordinare materiale' : 'Es. Promemoria'}
+            placeholder={PLACEHOLDERS[type]}
             placeholderTextColor={colors.muted}
             style={styles.input}
             autoFocus={!isEdit}
@@ -173,9 +191,35 @@ export default function ItemScreen() {
           />
         </View>
 
+        {WITH_AMOUNT.includes(type) ? (
+          <View>
+            <Text style={styles.label}>Importo</Text>
+            {type === 'soldi' ? (
+              <View style={[styles.chips, { marginBottom: 10 }]}>
+                <Chip label="Entrata" color="#16A34A" active={direction === 'entrata'} onPress={() => setDirection('entrata')} />
+                <Chip label="Uscita" color={colors.danger} active={direction === 'uscita'} onPress={() => setDirection('uscita')} />
+              </View>
+            ) : null}
+            <View style={styles.amountRow}>
+              <Text style={styles.euro}>€</Text>
+              <TextInput
+                value={amount}
+                onChangeText={(v) => {
+                  setAmount(v);
+                  setError('');
+                }}
+                placeholder="0,00"
+                placeholderTextColor={colors.muted}
+                style={[styles.input, { flex: 1 }]}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
+        ) : null}
+
         {CHECKABLE.includes(type) ? (
           <View style={styles.switchRow}>
-            <Text style={styles.switchText}>Completato</Text>
+            <Text style={styles.switchText}>{doneLabel(type)}</Text>
             <Switch value={done} onValueChange={setDone} />
           </View>
         ) : null}
@@ -210,6 +254,8 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 },
   input: { backgroundColor: colors.card, fontSize: 17, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, color: colors.text },
   multiline: { minHeight: 110 },
+  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  euro: { fontSize: 20, fontWeight: '700', color: colors.text },
   dateRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 12, gap: 8 },
   dateText: { fontSize: 16, color: colors.text, textAlign: 'center' },
   link: { fontSize: 14, fontWeight: '600' },

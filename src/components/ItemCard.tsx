@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Avatar } from './Avatar';
+import { amountLabel } from '../lib/money';
 import { formatRelative } from '../lib/dates';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
@@ -14,8 +16,8 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
   const meta = [
     showDate && item.date ? formatRelative(item.date) : null,
     item.time,
+    amountLabel(item),
     info.label,
-    item.createdBy ? `di ${item.createdBy}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -48,6 +50,9 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
         ) : null}
         <Text style={styles.meta}>{meta}</Text>
       </View>
+      <View style={styles.avatar}>
+        <Avatar name={item.createdBy} />
+      </View>
     </Pressable>
   );
 }
@@ -65,7 +70,8 @@ const styles = StyleSheet.create({
   },
   bar: { width: 4 },
   check: { paddingHorizontal: 12, justifyContent: 'center' },
-  body: { flex: 1, paddingVertical: 12, paddingRight: 12 },
+  body: { flex: 1, paddingVertical: 12, paddingRight: 8 },
+  avatar: { justifyContent: 'center', paddingRight: 12 },
   title: { fontSize: 16, fontWeight: '600', color: colors.text },
   done: { textDecorationLine: 'line-through', color: colors.muted },
   desc: { fontSize: 14, color: colors.text, marginTop: 2, opacity: 0.8 },

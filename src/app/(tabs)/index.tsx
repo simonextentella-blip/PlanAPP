@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Avatar } from '../../components/Avatar';
 import { capitalize, formatLong, formatRelative, todayISO } from '../../lib/dates';
+import { amountLabel, formatEuro, totals } from '../../lib/money';
 import { useStore } from '../../lib/store';
 import { colors } from '../../lib/theme';
-import { TYPE_INFO, type Item } from '../../lib/types';
+import { TYPE_INFO, type Item, type ItemType } from '../../lib/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -52,11 +54,34 @@ function Section({
               <Text style={styles.rowTitle} numberOfLines={1}>
                 {it.title}
               </Text>
-              <Text style={styles.rowMeta}>{it.time ?? (it.date ? formatRelative(it.date) : '')}</Text>
+              <Text style={styles.rowMeta}>{amountLabel(it) ?? it.time ?? (it.date && it.date !== todayISO() ? formatRelative(it.date) : '')}</Text>
+              <Avatar name={it.createdBy} size={22} />
             </View>
           ))
         )}
       </View>
+    </Pressable>
+  );
+}
+
+function Tile({ type, title, line }: { type: ItemType; title: string; line: string }) {
+  const info = TYPE_INFO[type];
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/categoria/[type]', params: { type } })}
+      style={({ pressed }) => [styles.tile, pressed && { opacity: 0.75 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Apri ${title}`}
+    >
+      <View style={[styles.tileIcon, { backgroundColor: info.color }]}>
+        <Ionicons name={info.icon.replace('-outline', '') as IconName} size={20} color="#fff" />
+      </View>
+      <Text style={styles.tileTitle} numberOfLines={1} adjustsFontSizeToFit>
+        {title}
+      </Text>
+      <Text style={styles.tileLine} numberOfLines={2}>
+        {line}
+      </Text>
     </Pressable>
   );
 }
@@ -73,6 +98,10 @@ export default function HomeScreen() {
   const overdue = openJobs.filter((it) => it.date && it.date < today).length;
   const todayItems = items.filter((it) => it.date === today);
   const notes = items.filter((it) => it.type === 'nota');
+  const openVisits = items.filter((it) => it.type === 'sopralluogo' && !it.done);
+  const pendingQuotes = items.filter((it) => it.type === 'preventivo' && !it.done);
+  const month = today.slice(0, 7);
+  const money = totals(items.filter((it) => it.type === 'soldi' && it.date?.startsWith(month)));
   const latestNotes = [...notes].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)).slice(0, 3);
 
   return (
@@ -105,6 +134,16 @@ export default function HomeScreen() {
         rows={todayItems.slice(0, 3)}
         empty="Tocca per vedere il mese e aggiungere appuntamenti."
       />
+
+      <View style={styles.tiles}>
+        <Tile type="sopralluogo" title="Sopralluoghi" line={openVisits.length ? plural(openVisits.length, 'da fare', 'da fare') : 'Nessuno in programma'} />
+        <Tile
+          type="preventivo"
+          title="Preventivi"
+          line={pendingQuotes.length ? `${plural(pendingQuotes.length, 'in attesa', 'in attesa')}` : 'Nessuno in attesa'}
+        />
+        <Tile type="soldi" title="Soldi" line={`Saldo del mese ${formatEuro(money.saldo)}`} />
+      </View>
 
       <Section
         title="Note"
@@ -140,6 +179,11 @@ const styles = StyleSheet.create({
   rowTitle: { flex: 1, fontSize: 15, color: colors.text },
   rowMeta: { fontSize: 13, color: colors.muted },
   empty: { fontSize: 14, color: colors.muted },
+  tiles: { flexDirection: 'row', gap: 10 },
+  tile: { flex: 1, minWidth: 0, backgroundColor: colors.card, borderRadius: 16, padding: 12, gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  tileIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  tileTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
+  tileLine: { fontSize: 12, color: colors.muted },
   addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 15 },
   addText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 });
