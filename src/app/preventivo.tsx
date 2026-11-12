@@ -3,81 +3,67 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Chip } from '../components/Chip';
-import { addDays, formatRelative, todayISO } from '../lib/dates';
+import { brand } from '../lib/brand';
+import { addDays, todayISO } from '../lib/dates';
 import { formatEuro, parseEuro } from '../lib/money';
-import { lineTotal, nextQuoteNumber, quoteTotals, VAT_RATES } from '../lib/quote';
+import { DEFAULT_CONDITIONS, DEFAULT_TEAM, formatShort, FORFETTARIO_NOTE, nextQuoteNumber, normalizeQuote, quoteTotals, uid, VAT_OPTIONS } from '../lib/quote';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
-import { TYPE_INFO, type QuoteLine } from '../lib/types';
+import type { Quote, QuoteCondition, QuoteTeamRow, QuoteWork } from '../lib/types';
 
-const ACCENT = TYPE_INFO.preventivo.color;
-const VALIDITY = [15, 30, 60, 90];
-
-interface LineDraft {
-  id: string;
-  description: string;
-  qty: string;
-  price: string;
-}
-
-function lid() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
-function toDraft(l: QuoteLine): LineDraft {
-  return { id: l.id, description: l.description, qty: String(l.qty).replace('.', ','), price: formatEuro(l.unitPrice).replace('€ ', '') };
-}
-
-function parseQty(s: string): number | null {
-  const n = Number(s.replace(',', '.').trim());
-  return s.trim() && Number.isFinite(n) && n > 0 ? n : null;
-}
+const ACCENT = brand.green;
+const VALIDITY = [30, 60, 90];
 
 export default function QuoteEditor() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { items, getItem, addItem, updateItem } = useStore();
   const existing = id ? getItem(id) : undefined;
-  const q = existing?.quote;
+  const q: Quote | null = existing?.quote ? normalizeQuote(existing.quote as never) : null;
 
-  const [number, setNumber] = useState(q?.number ?? nextQuoteNumber(items, new Date().getFullYear()));
+  const [number, setNumber] = useState(q?.number || nextQuoteNumber(items, new Date().getFullYear()));
   const [date, setDate] = useState(existing?.date ?? todayISO());
-  const [validity, setValidity] = useState(q?.validityDays ?? 30);
-  const [clientName, setClientName] = useState(q?.client.name ?? '');
-  const [clientAddress, setClientAddress] = useState(q?.client.address ?? '');
-  const [clientContact, setClientContact] = useState(q?.client.contact ?? '');
+  const [validity, setValidity] = useState(q?.validityDays ?? 60);
+  const [client, setClient] = useState(q?.client ?? { name: '', address: '', cityLine: '', taxId: '', site: '' });
   const [subject, setSubject] = useState(q?.subject ?? '');
-  const [lines, setLines] = useState<LineDraft[]>(q?.lines.map(toDraft) ?? [{ id: lid(), description: '', qty: '1', price: '' }]);
-  const [vatRate, setVatRate] = useState(q?.vatRate ?? 22);
-  const [notes, setNotes] = useState(q?.notes ?? '');
+  const [team, setTeam] = useState<QuoteTeamRow[]>(q?.team ?? DEFAULT_TEAM());
+  const [works, setWorks] = useState<QuoteWork[]>(q?.works.length ? q.works : [{ id: uid(), title: 'Allestimento cantiere', description: '', qty: 'a corpo' }]);
+  const [total, setTotal] = useState(q && q.total ? formatEuro(q.total).replace('€ ', '') : '');
+  const [vatRate, setVatRate] = useState(q?.vatRate ?? 0);
+  const [conditions, setConditions] = useState<QuoteCondition[]>(q?.conditions ?? DEFAULT_CONDITIONS());
   const [error, setError] = useState('');
 
-  const parsedLines = lines.map((l) => ({ id: l.id, description: l.description.trim(), qty: parseQty(l.qty), unitPrice: parseEuro(l.price) }));
-  const validLines = parsedLines.filter((l): l is QuoteLine => !!l.description && l.qty != null && l.unitPrice != null);
-  const totals = quoteTotals({ lines: validLines, vatRate });
+  const parsedTotal = parseEuro(total);
+  const totals = quoteTotals({ total: parsedTotal ?? 0, vatRate });
 
-  function patchLine(lineId: string, patch: Partial<LineDraft>) {
-    setLines((ls) => ls.map((l) => (l.id === lineId ? { ...l, ...patch } : l)));
+  const setC = (k: keyof Quote['client']) => (v: string) => {
+    setClient((c) => ({ ...c, [k]: v }));
+    setError('');
+  };
+  function patch<T extends { id: string }>(set: React.Dispatch<React.SetStateAction<T[]>>, rowId: string, p: Partial<T>) {
+    set((rows) => rows.map((r) => (r.id === rowId ? { ...r, ...p } : r)));
     setError('');
   }
 
   function save() {
-    if (!clientName.trim()) return setError('Scrivi il nome del cliente.');
-    const bad = parsedLines.findIndex((l) => (l.description || l.qty != null || l.unitPrice != null) && !(l.description && l.qty != null && l.unitPrice != null));
-    if (bad >= 0) return setError(`Riga ${bad + 1}: servono descrizione, quantità e prezzo (es. 1250,00).`);
-    if (validLines.length === 0) return setError('Aggiungi almeno una riga con descrizione, quantità e prezzo.');
-    const quote = {
+    if (!client.name.trim()) return setError('Scrivi il nome del cliente.');
+    const cleanWorks = works.filter((w) => w.title.trim() || w.description.trim());
+    if (cleanWorks.length === 0) return setError('Aggiungi almeno una lavorazione.');
+    if (parsedTotal == null) return setError('Scrivi il totale a corpo (es. 2300,00).');
+    const quote: Quote = {
       number: number.trim() || nextQuoteNumber(items, new Date().getFullYear()),
-      client: { name: clientName.trim(), address: clientAddress.trim(), contact: clientContact.trim() },
+      client: { name: client.name.trim(), address: client.address.trim(), cityLine: client.cityLine.trim(), taxId: client.taxId.trim(), site: client.site.trim() },
       subject: subject.trim(),
-      lines: validLines,
+      team: team.filter((r) => r.role.trim()).map((r) => ({ ...r, count: r.count.trim(), role: r.role.trim() })),
+      works: cleanWorks.map((w) => ({ ...w, title: w.title.trim(), description: w.description.trim(), qty: w.qty.trim() })),
+      total: parsedTotal,
       vatRate,
+      conditions: conditions.filter((c) => c.label.trim() || c.value.trim()).map((c) => ({ ...c, label: c.label.trim(), value: c.value.trim() })),
       validityDays: validity,
-      notes: notes.trim(),
     };
     const data = {
       type: 'preventivo' as const,
       title: `${quote.client.name}${quote.subject ? ` – ${quote.subject}` : ''}`,
-      description: `Preventivo N. ${quote.number}`,
+      description: `Preventivo N. ${quote.number}${quote.client.site ? ` · ${quote.client.site}` : ''}`,
       date,
       time: null,
       done: existing?.done ?? false,
@@ -107,106 +93,105 @@ export default function QuoteEditor() {
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Card title="Documento">
-          <View style={styles.inline}>
-            <Text style={styles.inlineLabel}>Numero</Text>
-            <TextInput value={number} onChangeText={setNumber} style={[styles.input, { flex: 1 }]} />
-          </View>
-          <View style={styles.dateRow}>
-            <Pressable onPress={() => setDate(addDays(date, -1))} hitSlop={8} accessibilityLabel="Giorno precedente">
-              <Ionicons name="chevron-back" size={22} color={ACCENT} />
-            </Pressable>
-            <Text style={styles.dateText}>Data: {formatRelative(date)}</Text>
-            <Pressable onPress={() => setDate(addDays(date, 1))} hitSlop={8} accessibilityLabel="Giorno successivo">
-              <Ionicons name="chevron-forward" size={22} color={ACCENT} />
-            </Pressable>
-          </View>
-          <Text style={styles.small}>Validità dell'offerta</Text>
-          <View style={styles.chips}>
-            {VALIDITY.map((d) => (
-              <Chip key={d} label={`${d} giorni`} color={ACCENT} active={validity === d} onPress={() => setValidity(d)} />
-            ))}
-          </View>
+        <Card title="Preventivo">
+          <Field label="Numero">
+            <TextInput value={number} onChangeText={setNumber} style={styles.input} />
+          </Field>
+          <Field label="Data">
+            <View style={styles.dateRow}>
+              <Pressable onPress={() => setDate(addDays(date, -1))} hitSlop={8} accessibilityLabel="Giorno precedente">
+                <Ionicons name="chevron-back" size={22} color={ACCENT} />
+              </Pressable>
+              <Text style={styles.dateText}>{formatShort(date)}</Text>
+              <Pressable onPress={() => setDate(addDays(date, 1))} hitSlop={8} accessibilityLabel="Giorno successivo">
+                <Ionicons name="chevron-forward" size={22} color={ACCENT} />
+              </Pressable>
+            </View>
+          </Field>
+          <Field label={`Validità · fino al ${formatShort(addDays(date, validity))}`}>
+            <View style={styles.chips}>
+              {VALIDITY.map((d) => (
+                <Chip key={d} label={`${d} giorni`} color={ACCENT} active={validity === d} onPress={() => setValidity(d)} />
+              ))}
+            </View>
+          </Field>
         </Card>
 
         <Card title="Cliente">
-          <TextInput value={clientName} onChangeText={(v) => (setClientName(v), setError(''))} placeholder="Nome o ragione sociale *" placeholderTextColor={colors.muted} style={styles.input} />
-          <TextInput value={clientAddress} onChangeText={setClientAddress} placeholder="Indirizzo" placeholderTextColor={colors.muted} style={styles.input} />
-          <TextInput value={clientContact} onChangeText={setClientContact} placeholder="Telefono o email" placeholderTextColor={colors.muted} style={styles.input} />
+          <Input value={client.name} onChangeText={setC('name')} placeholder="Nome e cognome / ragione sociale *" />
+          <Input value={client.address} onChangeText={setC('address')} placeholder="Indirizzo" />
+          <Input value={client.cityLine} onChangeText={setC('cityLine')} placeholder="CAP Città (Prov.)" />
+          <Input value={client.taxId} onChangeText={setC('taxId')} placeholder="C.F. / P.IVA" />
+          <Input value={client.site} onChangeText={setC('site')} placeholder="Luogo intervento (es. Manziana (RM))" />
         </Card>
 
         <Card title="Oggetto">
-          <TextInput value={subject} onChangeText={setSubject} placeholder="Es. Rifacimento bagno" placeholderTextColor={colors.muted} style={styles.input} />
+          <Input value={subject} onChangeText={setSubject} placeholder="Es. Potatura in tree climbing di esemplari arborei" multiline />
         </Card>
 
-        <Card title="Voci">
-          {lines.map((l, i) => {
-            const qty = parseQty(l.qty);
-            const price = parseEuro(l.price);
-            return (
-              <View key={l.id} style={styles.line}>
-                <View style={styles.lineHead}>
-                  <Text style={styles.small}>Riga {i + 1}</Text>
-                  {lines.length > 1 ? (
-                    <Pressable onPress={() => setLines((ls) => ls.filter((x) => x.id !== l.id))} hitSlop={8} accessibilityLabel={`Togli riga ${i + 1}`}>
-                      <Ionicons name="close-circle-outline" size={22} color={colors.muted} />
-                    </Pressable>
-                  ) : null}
-                </View>
-                <TextInput
-                  value={l.description}
-                  onChangeText={(v) => patchLine(l.id, { description: v })}
-                  placeholder="Descrizione (es. Posa piastrelle)"
-                  placeholderTextColor={colors.muted}
-                  style={styles.input}
-                  multiline
-                />
-                <View style={styles.lineNums}>
-                  <View style={{ width: 80 }}>
-                    <Text style={styles.tiny}>Q.tà</Text>
-                    <TextInput value={l.qty} onChangeText={(v) => patchLine(l.id, { qty: v })} keyboardType="decimal-pad" style={styles.input} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.tiny}>Prezzo unitario €</Text>
-                    <TextInput value={l.price} onChangeText={(v) => patchLine(l.id, { price: v })} placeholder="0,00" placeholderTextColor={colors.muted} keyboardType="decimal-pad" style={styles.input} />
-                  </View>
-                  <View style={styles.lineTotal}>
-                    <Text style={styles.tiny}>Importo</Text>
-                    <Text style={styles.lineTotalText}>{qty != null && price != null ? formatEuro(lineTotal(qty, price)) : '–'}</Text>
-                  </View>
-                </View>
+        <Card title="01 · Squadra impiegata">
+          {team.map((r) => (
+            <View key={r.id} style={styles.teamRow}>
+              <TextInput value={r.count} onChangeText={(v) => patch(setTeam, r.id, { count: v })} style={[styles.input, { width: 54, textAlign: 'center' }]} keyboardType="number-pad" />
+              <TextInput value={r.role} onChangeText={(v) => patch(setTeam, r.id, { role: v })} placeholder="Ruolo (es. operatore a terra)" placeholderTextColor={colors.muted} style={[styles.input, { flex: 1 }]} multiline />
+              <Remove onPress={() => setTeam((rows) => rows.filter((x) => x.id !== r.id))} />
+            </View>
+          ))}
+          <Add label="Aggiungi operatore" onPress={() => setTeam((rows) => [...rows, { id: uid(), count: '1', role: '' }])} />
+        </Card>
+
+        <Card title="02 · Lavorazioni">
+          {works.map((w, i) => (
+            <View key={w.id} style={styles.work}>
+              <View style={styles.workHead}>
+                <Text style={styles.workNum}>{i + 1}</Text>
+                <TextInput value={w.title} onChangeText={(v) => patch(setWorks, w.id, { title: v })} placeholder="Titolo (es. Potatura di Quercus ilex)" placeholderTextColor={colors.muted} style={[styles.input, { flex: 1, fontWeight: '600' }]} />
+                <Remove onPress={() => setWorks((rows) => rows.filter((x) => x.id !== w.id))} />
               </View>
-            );
-          })}
-          <Pressable onPress={() => setLines((ls) => [...ls, { id: lid(), description: '', qty: '1', price: '' }])} style={styles.addLine}>
-            <Ionicons name="add-circle-outline" size={20} color={ACCENT} />
-            <Text style={[styles.addLineText, { color: ACCENT }]}>Aggiungi riga</Text>
-          </Pressable>
+              <TextInput value={w.description} onChangeText={(v) => patch(setWorks, w.id, { description: v })} placeholder="Descrizione (facoltativa)" placeholderTextColor={colors.muted} style={[styles.input, { minHeight: 64 }]} multiline textAlignVertical="top" />
+              <View style={styles.qtyRow}>
+                <Text style={styles.small}>Q.tà</Text>
+                <TextInput value={w.qty} onChangeText={(v) => patch(setWorks, w.id, { qty: v })} style={[styles.input, { width: 90, textAlign: 'center' }]} />
+                <Chip label="a corpo" color={ACCENT} active={w.qty === 'a corpo'} onPress={() => patch(setWorks, w.id, { qty: w.qty === 'a corpo' ? '1' : 'a corpo' })} />
+              </View>
+            </View>
+          ))}
+          <Add label="Aggiungi lavorazione" onPress={() => setWorks((rows) => [...rows, { id: uid(), title: '', description: '', qty: '1' }])} />
         </Card>
 
-        <Card title="IVA e totale">
+        <Card title="03 · Riepilogo economico">
+          <Field label={vatRate === 0 ? 'Totale a corpo' : 'Totale a corpo (imponibile)'}>
+            <View style={styles.amountRow}>
+              <Text style={styles.euro}>€</Text>
+              <TextInput value={total} onChangeText={(v) => (setTotal(v), setError(''))} placeholder="0,00" placeholderTextColor={colors.muted} keyboardType="decimal-pad" style={[styles.input, { flex: 1, fontSize: 18 }]} />
+            </View>
+          </Field>
           <View style={styles.chips}>
-            {VAT_RATES.map((r) => (
-              <Chip key={r} label={`${r}%`} color={ACCENT} active={vatRate === r} onPress={() => setVatRate(r)} />
+            {VAT_OPTIONS.map((r) => (
+              <Chip key={r} label={r === 0 ? 'Forfettario (no IVA)' : `IVA ${r}%`} color={ACCENT} active={vatRate === r} onPress={() => setVatRate(r)} />
             ))}
           </View>
-          <View style={styles.totals}>
-            <Row label="Imponibile" value={formatEuro(totals.imponibile)} />
-            <Row label={`IVA ${vatRate}%`} value={formatEuro(totals.iva)} />
-            <Row label="Totale" value={formatEuro(totals.totale)} big />
+          <View style={styles.totalBox}>
+            <View>
+              <Text style={styles.totalK}>TOTALE A CORPO</Text>
+              <Text style={styles.totalS}>{vatRate === 0 ? 'IVA non applicata*' : `IVA ${vatRate}% inclusa (${formatEuro(totals.iva)})`}</Text>
+            </View>
+            <Text style={styles.totalV}>{formatEuro(totals.totale)}</Text>
           </View>
+          {vatRate === 0 ? <Text style={styles.foot}>* {FORFETTARIO_NOTE}</Text> : null}
         </Card>
 
-        <Card title="Note e condizioni">
-          <TextInput
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Es. Pagamento 30% all'ordine, saldo a fine lavori. Tempi di esecuzione: 10 giorni."
-            placeholderTextColor={colors.muted}
-            style={[styles.input, { minHeight: 90 }]}
-            multiline
-            textAlignVertical="top"
-          />
+        <Card title="04 · Condizioni">
+          {conditions.map((c) => (
+            <View key={c.id} style={styles.cond}>
+              <View style={styles.workHead}>
+                <TextInput value={c.label} onChangeText={(v) => patch(setConditions, c.id, { label: v })} placeholder="Voce (es. Tempi)" placeholderTextColor={colors.muted} style={[styles.input, { flex: 1, fontWeight: '600' }]} />
+                <Remove onPress={() => setConditions((rows) => rows.filter((x) => x.id !== c.id))} />
+              </View>
+              <TextInput value={c.value} onChangeText={(v) => patch(setConditions, c.id, { value: v })} placeholder="Testo" placeholderTextColor={colors.muted} style={styles.input} multiline />
+            </View>
+          ))}
+          <Add label="Aggiungi condizione" onPress={() => setConditions((rows) => [...rows, { id: uid(), label: '', value: '' }])} />
         </Card>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -227,43 +212,63 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-function Row({ label, value, big }: { label: string; value: string; big?: boolean }) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View style={[styles.row, big && styles.rowBig]}>
-      <Text style={[styles.rowLabel, big && styles.big]}>{label}</Text>
-      <Text style={[styles.rowValue, big && styles.big]}>{value}</Text>
+    <View style={{ gap: 6 }}>
+      <Text style={styles.small}>{label}</Text>
+      {children}
     </View>
+  );
+}
+
+function Input(props: React.ComponentProps<typeof TextInput>) {
+  return <TextInput placeholderTextColor={colors.muted} {...props} style={styles.input} />;
+}
+
+function Remove({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} hitSlop={8} accessibilityLabel="Togli">
+      <Ionicons name="close-circle-outline" size={22} color={colors.muted} />
+    </Pressable>
+  );
+}
+
+function Add({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={styles.add}>
+      <Ionicons name="add-circle-outline" size={20} color={ACCENT} />
+      <Text style={styles.addText}>{label}</Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 16, gap: 14, paddingBottom: 48 },
-  headerBtn: { fontSize: 17, color: colors.primary, fontWeight: '700', paddingHorizontal: 12 },
+  headerBtn: { fontSize: 17, color: ACCENT, fontWeight: '700', paddingHorizontal: 12 },
   card: { backgroundColor: colors.card, borderRadius: 14, padding: 14, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  cardTitle: { fontSize: 13, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  cardTitle: { fontSize: 13, fontWeight: '800', color: brand.dark, textTransform: 'uppercase', letterSpacing: 1 },
   input: { backgroundColor: colors.card, fontSize: 16, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: colors.text },
-  inline: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  inlineLabel: { fontSize: 15, color: colors.text, width: 70 },
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10 },
-  dateText: { fontSize: 15, color: colors.text },
+  dateText: { fontSize: 16, color: colors.text, fontWeight: '600' },
   small: { fontSize: 13, color: colors.muted, fontWeight: '600' },
-  tiny: { fontSize: 11, color: colors.muted, marginBottom: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 },
-  line: { gap: 8, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  lineHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  lineNums: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
-  lineTotal: { minWidth: 90, alignItems: 'flex-end', paddingBottom: 10 },
-  lineTotalText: { fontSize: 15, fontWeight: '600', color: colors.text, fontVariant: ['tabular-nums'] },
-  addLine: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
-  addLineText: { fontSize: 15, fontWeight: '600' },
-  totals: { gap: 6, marginTop: 4 },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
-  rowBig: { borderTopWidth: 1, borderColor: colors.text, paddingTop: 8, marginTop: 4 },
-  rowLabel: { fontSize: 15, color: colors.muted },
-  rowValue: { fontSize: 15, color: colors.text, fontVariant: ['tabular-nums'] },
-  big: { fontSize: 19, fontWeight: '800', color: colors.text },
+  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  work: { gap: 8, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  workHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  workNum: { width: 22, textAlign: 'center', fontSize: 16, fontWeight: '800', color: ACCENT },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cond: { gap: 6, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  add: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+  addText: { fontSize: 15, fontWeight: '600', color: ACCENT },
+  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  euro: { fontSize: 20, fontWeight: '700', color: colors.text },
+  totalBox: { backgroundColor: brand.dark, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  totalK: { color: '#fff', fontWeight: '800', letterSpacing: 2, fontSize: 13 },
+  totalS: { color: '#fff', opacity: 0.8, fontSize: 11, marginTop: 2 },
+  totalV: { color: '#fff', fontSize: 20, fontWeight: '800' },
+  foot: { fontSize: 11, fontStyle: 'italic', color: colors.muted },
   error: { color: colors.danger, fontSize: 14 },
-  saveBtn: { backgroundColor: ACCENT, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+  saveBtn: { backgroundColor: brand.dark, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
   saveText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 });

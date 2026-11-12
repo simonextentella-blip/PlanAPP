@@ -50,31 +50,64 @@ export function doneLabel(type: ItemType): string {
   return 'Completato';
 }
 
-export interface QuoteLine {
+export interface QuoteTeamRow {
   id: string;
+  count: string;
+  role: string;
+}
+
+export interface QuoteWork {
+  id: string;
+  title: string;
   description: string;
-  qty: number;
-  unitPrice: number;
+  /** Numero oppure "a corpo". */
+  qty: string;
+}
+
+export interface QuoteCondition {
+  id: string;
+  label: string;
+  value: string;
 }
 
 export interface Quote {
-  /** Es. "3/2026" */
+  /** Es. "2026/001" */
   number: string;
-  client: { name: string; address: string; contact: string };
+  client: { name: string; address: string; cityLine: string; taxId: string; site: string };
   subject: string;
-  lines: QuoteLine[];
-  /** Aliquota IVA in percentuale, es. 22. */
+  team: QuoteTeamRow[];
+  works: QuoteWork[];
+  /** Importo a corpo (imponibile se c'è IVA). */
+  total: number;
+  /** 0 = regime forfettario, IVA non applicata. */
   vatRate: number;
+  conditions: QuoteCondition[];
   /** Giorni di validità dell'offerta. */
   validityDays: number;
-  notes: string;
 }
 
 export interface Company {
   name: string;
+  owner: string;
+  tagline: string;
+  legalName: string;
   address: string;
+  cityLine: string;
   vat: string;
-  contact: string;
+  cf: string;
+  email: string;
+  phone: string;
 }
 
-export const EMPTY_COMPANY: Company = { name: '', address: '', vat: '', contact: '' };
+export const DEFAULT_COMPANY: Company = {
+  name: 'Rope Access Workers',
+  owner: 'di Simone Tentella',
+  tagline: 'Lavori in quota su funi · Tree climbing · Potature',
+  legalName: 'Rope Access Workers di Simone Tentella',
+  address: 'Via Don Giovanni Vivenzi 12',
+  cityLine: '00060 Canale Monterano (RM)',
+  vat: '16031971001',
+  cf: 'TNTSMN91T11H501R',
+  email: 'siimonextentella@gmail.com',
+  phone: '320 375 1083',
+};

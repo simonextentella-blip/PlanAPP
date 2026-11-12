@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { loadCompany, localRepository, loadProfileName, saveCompany, saveProfileName, type ItemRepository } from './repository';
-import { EMPTY_COMPANY, type Company, type Item, type NewItem } from './types';
+import { DEFAULT_COMPANY, type Company, type Item, type NewItem } from './types';
 
 interface StoreValue {
   ready: boolean;
@@ -37,7 +37,7 @@ export function StoreProvider({ children, repository = localRepository }: { chil
   const [ready, setReady] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [userName, setUserNameState] = useState('');
-  const [company, setCompanyState] = useState<Company>(EMPTY_COMPANY);
+  const [company, setCompanyState] = useState<Company>(DEFAULT_COMPANY);
 
   useEffect(() => {
     Promise.all([repository.loadAll(), loadProfileName(), loadCompany()])

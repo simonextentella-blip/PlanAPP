@@ -8,7 +8,7 @@ export default function ProfileScreen() {
   const { userName, setUserName, items, company, setCompany } = useStore();
   const [draft, setDraft] = useState(userName);
   const [comp, setComp] = useState(company);
-  const saveComp = () => setCompany({ name: comp.name.trim(), address: comp.address.trim(), vat: comp.vat.trim(), contact: comp.contact.trim() });
+  const saveComp = () => setCompany(Object.fromEntries(Object.entries(comp).map(([k, v]) => [k, String(v).trim()])) as unknown as typeof comp);
   const field = (key: keyof typeof comp, placeholder: string, multiline = false) => (
     <TextInput
       value={comp[key]}
@@ -40,11 +40,17 @@ export default function ProfileScreen() {
 
       <View style={styles.card}>
         <Text style={styles.label}>Dati azienda (per i preventivi)</Text>
-        {field('name', 'Nome azienda')}
-        {field('address', 'Indirizzo', true)}
+        {field('name', 'Nome (es. Rope Access Workers)')}
+        {field('owner', 'Sottotitolo (es. di Simone Tentella)')}
+        {field('tagline', 'Attività (es. Lavori in quota su funi · Tree climbing)')}
+        {field('legalName', 'Ragione sociale completa')}
+        {field('address', 'Indirizzo')}
+        {field('cityLine', 'CAP Città (Prov.)')}
         {field('vat', 'Partita IVA')}
-        {field('contact', 'Telefono / email')}
-        <Text style={styles.hint}>Compaiono in alto su ogni preventivo e nel PDF.</Text>
+        {field('cf', 'Codice fiscale')}
+        {field('email', 'Email')}
+        {field('phone', 'Telefono')}
+        <Text style={styles.hint}>Compaiono in testa a ogni preventivo e nel PDF. Li ho precompilati dal tuo modello.</Text>
       </View>
 
       <View style={styles.card}>
