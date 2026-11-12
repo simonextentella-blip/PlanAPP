@@ -65,7 +65,13 @@ export function linkVisitsToQuotes(prev: Item[], next: Item[], author: string): 
 export function linkQuotesToJobs(prev: Item[], next: Item[], author: string): Item[] {
   const before = new Map(prev.map((it) => [it.id, it]));
   const accepted = new Set(next.filter((it) => it.type === 'preventivo' && it.done).map((it) => it.id));
-  let out = next.filter((it) => !(it.quoteId && !it.done && !it.date && !accepted.has(it.quoteId)));
+  let out = next
+    .filter((it) => !(it.quoteId && !it.done && !it.date && !accepted.has(it.quoteId)))
+    .map((it) => {
+      if (!it.quoteId || it.amount != null) return it;
+      const pv = next.find((x) => x.id === it.quoteId);
+      return pv?.amount != null ? { ...it, amount: pv.amount } : it;
+    });
   const now = new Date().toISOString();
   for (const pv of next) {
     if (pv.type !== 'preventivo' || !pv.done || before.get(pv.id)?.done) continue;
@@ -106,8 +112,22 @@ export function linkQuotesToJobs(prev: Item[], next: Item[], author: string): It
  */
 export function linkJobsToMoney(prev: Item[], next: Item[], author: string): Item[] {
   const before = new Map(prev.map((it) => [it.id, it]));
-  const doneJobs = new Set(next.filter((it) => it.type === 'lavoro' && it.done).map((it) => it.id));
-  let out = next.filter((it) => !(it.jobId && !doneJobs.has(it.jobId)));
+  // Importo del lavoro: il suo, oppure quello del preventivo da cui nasce.
+  const jobAmount = (job: Item): number | null => {
+    if (job.amount != null) return job.amount;
+    const pv = job.quoteId ? next.find((it) => it.id === job.quoteId) : undefined;
+    return pv?.amount ?? null;
+  };
+  const jobs = new Map(next.filter((it) => it.type === 'lavoro').map((it) => [it.id, it]));
+  const doneJobs = new Set([...jobs.values()].filter((it) => it.done).map((it) => it.id));
+  let out = next
+    .filter((it) => !(it.jobId && !doneJobs.has(it.jobId)))
+    // Entrate rimaste senza importo: lo completa appena il lavoro (o il suo preventivo) ce l'ha.
+    .map((it) => {
+      if (!it.jobId || it.amount != null) return it;
+      const a = jobAmount(jobs.get(it.jobId)!);
+      return a == null ? it : { ...it, amount: a };
+    });
   const now = new Date().toISOString();
   const today = now.slice(0, 10);
   for (const job of next) {
@@ -128,7 +148,7 @@ export function linkJobsToMoney(prev: Item[], next: Item[], author: string): Ite
         date: today,
         time: null,
         done: false,
-        amount: job.amount ?? null,
+        amount: jobAmount(job),
         direction: 'entrata',
         quote: null,
         jobId: job.id,
@@ -164,7 +184,7 @@ export function StoreProvider({ children, repository = localRepository }: { chil
     Promise.all([repository.loadAll(), loadProfileName(), loadCompany()])
       .then(([loaded, name, comp]) => {
         setCompanyState(comp);
-        setItems(loaded);
+        setItems(linkVisitsToQuotes(loaded, loaded, name || 'Io'));
         setUserNameState(name);
       })
       .catch(() => {
