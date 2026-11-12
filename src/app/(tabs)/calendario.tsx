@@ -8,7 +8,7 @@ import { ItemCard } from '../../components/ItemCard';
 import { formatRelative, todayISO } from '../../lib/dates';
 import { useStore } from '../../lib/store';
 import { colors } from '../../lib/theme';
-import { TYPE_INFO, type ItemType } from '../../lib/types';
+import { inCalendar, ITEM_TYPES, TYPE_INFO, type ItemType } from '../../lib/types';
 
 export default function CalendarScreen() {
   const { items } = useStore();
@@ -17,7 +17,7 @@ export default function CalendarScreen() {
   const marked = useMemo(() => {
     const byDay: Record<string, Set<ItemType>> = {};
     for (const it of items) {
-      if (!it.date) continue;
+      if (!it.date || !inCalendar(it)) continue;
       (byDay[it.date] ??= new Set()).add(it.type);
     }
     const out: Record<string, { dots: { key: string; color: string }[]; selected?: boolean; selectedColor?: string }> = {};
@@ -28,7 +28,7 @@ export default function CalendarScreen() {
     return out;
   }, [items, selected]);
 
-  const dayItems = items.filter((it) => it.date === selected);
+  const dayItems = items.filter((it) => it.date === selected && inCalendar(it));
 
   return (
     <View style={styles.container}>
@@ -49,7 +49,7 @@ export default function CalendarScreen() {
               style={styles.calendar}
             />
             <View style={styles.legend}>
-              {Object.values(TYPE_INFO).map((t) => (
+              {ITEM_TYPES.filter((type) => inCalendar({ type })).map((type) => TYPE_INFO[type]).map((t) => (
                 <View key={t.label} style={styles.legendItem}>
                   <View style={[styles.dot, { backgroundColor: t.color }]} />
                   <Text style={styles.legendText}>{t.plural}</Text>

@@ -111,3 +111,7 @@ export const DEFAULT_COMPANY: Company = {
   email: 'siimonextentella@gmail.com',
   phone: '320 375 1083',
 };
+
+/** Tipi che non compaiono nel calendario. */
+export const NOT_IN_CALENDAR: ItemType[] = ['preventivo'];
+export const inCalendar = (it: { type: ItemType }) => !NOT_IN_CALENDAR.includes(it.type);

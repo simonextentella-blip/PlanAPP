@@ -6,7 +6,7 @@ import { capitalize, formatLong, formatRelative, todayISO } from '../../lib/date
 import { amountLabel, formatEuro, totals } from '../../lib/money';
 import { useStore } from '../../lib/store';
 import { colors } from '../../lib/theme';
-import { TYPE_INFO, type Item, type ItemType } from '../../lib/types';
+import { inCalendar, TYPE_INFO, type Item, type ItemType } from '../../lib/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -96,7 +96,7 @@ export default function HomeScreen() {
 
   const openJobs = items.filter((it) => (it.type === 'lavoro' || it.type === 'todo') && !it.done);
   const overdue = openJobs.filter((it) => it.date && it.date < today).length;
-  const todayItems = items.filter((it) => it.date === today);
+  const todayItems = items.filter((it) => it.date === today && inCalendar(it));
   const notes = items.filter((it) => it.type === 'nota');
   const openVisits = items.filter((it) => it.type === 'sopralluogo' && !it.done);
   const pendingQuotes = items.filter((it) => it.type === 'preventivo' && !it.done);
