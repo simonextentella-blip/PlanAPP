@@ -1,0 +1,224 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Calendar } from 'react-native-calendars';
+import { Chip } from '../components/Chip';
+import { addDays, formatRelative, isValidTime, normalizeTime, todayISO } from '../lib/dates';
+import { useStore } from '../lib/store';
+import { colors } from '../lib/theme';
+import { CHECKABLE, ITEM_TYPES, TYPE_INFO, type ItemType } from '../lib/types';
+
+export default function ItemScreen() {
+  const params = useLocalSearchParams<{ id?: string; date?: string; type?: ItemType }>();
+  const { getItem, addItem, updateItem, removeItem } = useStore();
+  const existing = params.id ? getItem(params.id) : undefined;
+
+  const [type, setType] = useState<ItemType>(existing?.type ?? params.type ?? 'appuntamento');
+  const [title, setTitle] = useState(existing?.title ?? '');
+  const [description, setDescription] = useState(existing?.description ?? '');
+  const [date, setDate] = useState<string | null>(existing ? existing.date : params.date ?? (params.type === 'nota' ? null : todayISO()));
+  const [time, setTime] = useState(existing?.time ?? '');
+  const [done, setDone] = useState(existing?.done ?? false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const isEdit = !!existing;
+  const color = TYPE_INFO[type].color;
+
+  function save() {
+    const t = title.trim();
+    if (!t) return setError('Scrivi un titolo.');
+    const tm = time.trim();
+    if (tm && !isValidTime(tm)) return setError('Orario non valido: usa il formato 09:30.');
+    const data = {
+      type,
+      title: t,
+      description: description.trim(),
+      date,
+      time: tm && date ? normalizeTime(tm) : null,
+      done: CHECKABLE.includes(type) ? done : false,
+    };
+    if (existing) updateItem(existing.id, data);
+    else addItem(data);
+    router.back();
+  }
+
+  function remove() {
+    if (!existing) return;
+    // Primo tocco: chiede conferma. Secondo tocco: elimina.
+    if (!confirmDelete) return setConfirmDelete(true);
+    removeItem(existing.id);
+    router.back();
+  }
+
+  if (params.id && !existing) {
+    return (
+      <View style={styles.center}>
+        <Stack.Screen options={{ title: 'Non trovato' }} />
+        <Text style={styles.muted}>Questo elemento non esiste più.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Stack.Screen
+        options={{
+          title: isEdit ? 'Modifica' : 'Nuovo',
+          headerLeft: () => (
+            <Pressable onPress={() => router.back()} hitSlop={10}>
+              <Text style={styles.headerBtn}>Annulla</Text>
+            </Pressable>
+          ),
+          headerRight: () => (
+            <Pressable onPress={save} hitSlop={10}>
+              <Text style={[styles.headerBtn, { fontWeight: '700' }]}>Salva</Text>
+            </Pressable>
+          ),
+        }}
+      />
+      <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, gap: 18, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+        <View>
+          <Text style={styles.label}>Tipo</Text>
+          <View style={styles.chips}>
+            {ITEM_TYPES.map((t) => (
+              <Chip key={t} label={TYPE_INFO[t].label} color={TYPE_INFO[t].color} active={type === t} onPress={() => setType(t)} />
+            ))}
+          </View>
+        </View>
+
+        <View>
+          <Text style={styles.label}>Titolo</Text>
+          <TextInput
+            value={title}
+            onChangeText={(v) => {
+              setTitle(v);
+              setError('');
+            }}
+            placeholder={type === 'appuntamento' ? 'Es. Sopralluogo da Rossi' : type === 'lavoro' ? 'Es. Installazione impianto' : type === 'todo' ? 'Es. Ordinare materiale' : 'Es. Promemoria'}
+            placeholderTextColor={colors.muted}
+            style={styles.input}
+            autoFocus={!isEdit}
+          />
+        </View>
+
+        <View>
+          <Text style={styles.label}>Giorno</Text>
+          {date ? (
+            <View style={styles.dateRow}>
+              <Pressable onPress={() => setDate(addDays(date, -1))} hitSlop={8} accessibilityLabel="Giorno precedente">
+                <Ionicons name="chevron-back" size={24} color={color} />
+              </Pressable>
+              <Pressable onPress={() => setShowCalendar((s) => !s)} style={{ flex: 1 }}>
+                <Text style={styles.dateText}>{formatRelative(date)}</Text>
+              </Pressable>
+              <Pressable onPress={() => setDate(addDays(date, 1))} hitSlop={8} accessibilityLabel="Giorno successivo">
+                <Ionicons name="chevron-forward" size={24} color={color} />
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable style={styles.dateRow} onPress={() => setDate(params.date ?? todayISO())}>
+              <Text style={[styles.dateText, { color: colors.muted }]}>Nessuna data (nota generale) · tocca per aggiungerla</Text>
+            </Pressable>
+          )}
+          {date && showCalendar ? (
+            <Calendar
+              current={date}
+              firstDay={1}
+              markedDates={{ [date]: { selected: true, selectedColor: color } }}
+              onDayPress={(d) => {
+                setDate(d.dateString);
+                setShowCalendar(false);
+              }}
+              style={{ marginTop: 8, borderRadius: 12 }}
+            />
+          ) : null}
+          {date ? (
+            <Pressable onPress={() => setDate(null)} style={{ marginTop: 8 }}>
+              <Text style={[styles.link, { color }]}>Togli la data</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {date ? (
+          <View>
+            <Text style={styles.label}>Orario (facoltativo)</Text>
+            <TextInput
+              value={time}
+              onChangeText={(v) => {
+                setTime(v);
+                setError('');
+              }}
+              placeholder="09:30"
+              placeholderTextColor={colors.muted}
+              style={[styles.input, { width: 120 }]}
+              keyboardType="numbers-and-punctuation"
+              maxLength={5}
+            />
+          </View>
+        ) : null}
+
+        <View>
+          <Text style={styles.label}>Note</Text>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Dettagli, indirizzo, materiale, telefono…"
+            placeholderTextColor={colors.muted}
+            style={[styles.input, styles.multiline]}
+            multiline
+            textAlignVertical="top"
+          />
+        </View>
+
+        {CHECKABLE.includes(type) ? (
+          <View style={styles.switchRow}>
+            <Text style={styles.switchText}>Completato</Text>
+            <Switch value={done} onValueChange={setDone} />
+          </View>
+        ) : null}
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <Pressable onPress={save} style={[styles.saveBtn, { backgroundColor: color }]}>
+          <Text style={styles.saveText}>{isEdit ? 'Salva modifiche' : 'Aggiungi'}</Text>
+        </Pressable>
+
+        {isEdit ? (
+          <>
+            <Pressable onPress={remove} style={styles.deleteBtn}>
+              <Ionicons name="trash-outline" size={18} color={colors.danger} />
+              <Text style={styles.deleteText}>{confirmDelete ? 'Tocca di nuovo per eliminare' : 'Elimina'}</Text>
+            </Pressable>
+            <Text style={styles.muted}>
+              Aggiunto da {existing!.createdBy} · ultima modifica {new Date(existing!.updatedAt).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })}
+            </Text>
+          </>
+        ) : null}
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  headerBtn: { fontSize: 17, color: colors.primary, paddingHorizontal: 8 },
+  label: { fontSize: 13, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 },
+  input: { backgroundColor: colors.card, fontSize: 17, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, color: colors.text },
+  multiline: { minHeight: 110 },
+  dateRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 12, gap: 8 },
+  dateText: { fontSize: 16, color: colors.text, textAlign: 'center' },
+  link: { fontSize: 14, fontWeight: '600' },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.card, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: colors.border },
+  switchText: { fontSize: 16, color: colors.text },
+  error: { color: colors.danger, fontSize: 14 },
+  saveBtn: { borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+  saveText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
+  deleteText: { color: colors.danger, fontSize: 16, fontWeight: '600' },
+  muted: { color: colors.muted, fontSize: 13, textAlign: 'center' },
+});
