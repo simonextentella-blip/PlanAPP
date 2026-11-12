@@ -137,7 +137,7 @@ export default function HomeScreen() {
       />
 
       <View style={styles.tiles}>
-        <Tile type="sopralluogo" title="Sopralluoghi" line={openVisits.length ? plural(openVisits.length, 'da fare', 'da fare') : 'Nessuno in programma'} />
+        <Tile type="sopralluogo" title="Sopralluoghi" line={openVisits.length ? `${plural(openVisits.length, 'da fare', 'da fare')}${openVisits.some((it) => !it.date) ? ` · ${openVisits.filter((it) => !it.date).length} da concordare` : ''}` : 'Nessuno in programma'} />
         <Tile
           type="preventivo"
           title="Preventivi"

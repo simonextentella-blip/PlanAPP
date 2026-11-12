@@ -14,7 +14,7 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
   const checkable = CHECKABLE.includes(item.type);
 
   const meta = [
-    showDate && item.date ? formatRelative(item.date) : null,
+    showDate && item.date ? formatRelative(item.date) : !item.date && item.type === 'sopralluogo' ? 'Data da concordare' : null,
     item.time,
     amountLabel(item),
     info.label,
