@@ -4,6 +4,7 @@ import { formatEuro } from './money';
 import type { Company, Item, Quote, QuoteCondition, QuoteTeamRow } from './types';
 
 export const VAT_OPTIONS = [0, 22, 10];
+export const MARKUP_OPTIONS = [0, 15, 40];
 export const FORFETTARIO_NOTE =
   "Operazione in regime forfettario, senza applicazione dell'IVA ai sensi dell'art. 1, commi 54-89, della Legge n. 190/2014.";
 
@@ -23,8 +24,9 @@ export const DEFAULT_CONDITIONS = (): QuoteCondition[] => [
   { id: uid(), label: 'Pagamento', value: "30% all'accettazione, saldo a fine lavori." },
 ];
 
-export function quoteTotals(q: Pick<Quote, 'total' | 'vatRate'>) {
-  const imponibile = q.total;
+export function quoteTotals(q: Pick<Quote, 'total' | 'vatRate' | 'markup'>) {
+  // La maggiorazione si applica alla base e resta invisibile: nel documento c'è solo il risultato.
+  const imponibile = Math.round(q.total * (1 + (q.markup ?? 0) / 100) * 100) / 100;
   const iva = Math.round(imponibile * q.vatRate) / 100;
   return { imponibile, iva, totale: Math.round((imponibile + iva) * 100) / 100 };
 }
@@ -56,6 +58,7 @@ export function normalizeQuote(q: Partial<Quote> & Record<string, unknown>): Quo
     works: q.works ?? [],
     total: q.total ?? 0,
     vatRate: q.vatRate ?? 0,
+    markup: q.markup ?? 0,
     conditions: q.conditions ?? [],
     validityDays: q.validityDays ?? 60,
   };

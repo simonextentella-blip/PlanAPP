@@ -6,7 +6,7 @@ import { Chip } from '../components/Chip';
 import { brand } from '../lib/brand';
 import { addDays, todayISO } from '../lib/dates';
 import { formatEuro, parseEuro } from '../lib/money';
-import { DEFAULT_CONDITIONS, DEFAULT_TEAM, formatShort, FORFETTARIO_NOTE, nextQuoteNumber, normalizeQuote, quoteTotals, uid, VAT_OPTIONS } from '../lib/quote';
+import { DEFAULT_CONDITIONS, DEFAULT_TEAM, formatShort, FORFETTARIO_NOTE, MARKUP_OPTIONS, nextQuoteNumber, normalizeQuote, quoteTotals, uid, VAT_OPTIONS } from '../lib/quote';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 import type { Quote, QuoteCondition, QuoteTeamRow, QuoteWork } from '../lib/types';
@@ -33,11 +33,12 @@ export default function QuoteEditor() {
   const [works, setWorks] = useState<QuoteWork[]>(q?.works.length ? q.works : [{ id: uid(), title: 'Allestimento cantiere', description: '', qty: 'a corpo' }]);
   const [total, setTotal] = useState(q && q.total ? formatEuro(q.total).replace('€ ', '') : '');
   const [vatRate, setVatRate] = useState(q?.vatRate ?? 0);
+  const [markup, setMarkup] = useState(q?.markup ?? 0);
   const [conditions, setConditions] = useState<QuoteCondition[]>(q?.conditions ?? DEFAULT_CONDITIONS());
   const [error, setError] = useState('');
 
   const parsedTotal = parseEuro(total);
-  const totals = quoteTotals({ total: parsedTotal ?? 0, vatRate });
+  const totals = quoteTotals({ total: parsedTotal ?? 0, vatRate, markup });
 
   const setC = (k: keyof Quote['client']) => (v: string) => {
     setClient((c) => ({ ...c, [k]: v }));
@@ -61,6 +62,7 @@ export default function QuoteEditor() {
       works: cleanWorks.map((w) => ({ ...w, title: w.title.trim(), description: w.description.trim(), qty: w.qty.trim() })),
       total: parsedTotal,
       vatRate,
+      markup,
       conditions: conditions.filter((c) => c.label.trim() || c.value.trim()).map((c) => ({ ...c, label: c.label.trim(), value: c.value.trim() })),
       validityDays: validity,
     };
@@ -177,7 +179,7 @@ export default function QuoteEditor() {
         </Card>
 
         <Card title="03 · Riepilogo economico">
-          <Field label={vatRate === 0 ? 'Totale a corpo' : 'Totale a corpo (imponibile)'}>
+          <Field label={markup ? 'Importo base (prima della maggiorazione)' : vatRate === 0 ? 'Totale a corpo' : 'Totale a corpo (imponibile)'}>
             <View style={styles.amountRow}>
               <Text style={styles.euro}>€</Text>
               <TextInput value={total} onChangeText={(v) => (setTotal(v), setError(''))} placeholder="0,00" placeholderTextColor={colors.muted} keyboardType="decimal-pad" style={[styles.input, { flex: 1, fontSize: 18 }]} />
@@ -187,6 +189,19 @@ export default function QuoteEditor() {
             {VAT_OPTIONS.map((r) => (
               <Chip key={r} label={r === 0 ? 'Forfettario (no IVA)' : `IVA ${r}%`} color={ACCENT} active={vatRate === r} onPress={() => setVatRate(r)} />
             ))}
+          </View>
+          <View style={styles.markupBox}>
+            <Text style={styles.small}>Maggiorazione (non compare nel preventivo)</Text>
+            <View style={styles.chips}>
+              {MARKUP_OPTIONS.map((m) => (
+                <Chip key={m} label={m === 0 ? 'Nessuna' : `+${m}%`} color={brand.dark} active={markup === m} onPress={() => setMarkup(m)} />
+              ))}
+            </View>
+            {markup > 0 && parsedTotal != null ? (
+              <Text style={styles.markupNote}>
+                {formatEuro(parsedTotal)} + {markup}% = {formatEuro(totals.imponibile)}. Nel preventivo comparirà solo {formatEuro(totals.totale)}.
+              </Text>
+            ) : null}
           </View>
           <View style={styles.totalBox}>
             <View>
@@ -283,6 +298,8 @@ const styles = StyleSheet.create({
   addText: { fontSize: 15, fontWeight: '600', color: ACCENT },
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   euro: { fontSize: 20, fontWeight: '700', color: colors.text },
+  markupBox: { gap: 8, backgroundColor: colors.bg, borderRadius: 10, padding: 10 },
+  markupNote: { fontSize: 13, color: colors.text },
   totalBox: { backgroundColor: brand.dark, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   totalK: { color: '#fff', fontWeight: '800', letterSpacing: 2, fontSize: 13 },
   totalS: { color: '#fff', opacity: 0.8, fontSize: 11, marginTop: 2 },

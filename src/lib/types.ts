@@ -87,6 +87,8 @@ export interface Quote {
   total: number;
   /** 0 = regime forfettario, IVA non applicata. */
   vatRate: number;
+  /** Maggiorazione interna in % (es. 15 o 40): aumenta il totale ma non compare nel documento. */
+  markup?: number;
   conditions: QuoteCondition[];
   /** Giorni di validità dell'offerta. */
   validityDays: number;
