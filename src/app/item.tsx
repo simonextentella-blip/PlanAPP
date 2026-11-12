@@ -107,6 +107,14 @@ export default function ItemScreen() {
           </View>
         </View>
 
+        {type === 'preventivo' && !isEdit ? (
+          <Pressable onPress={() => router.replace('/preventivo')} style={[styles.banner, { borderColor: color }]}>
+            <Ionicons name="receipt-outline" size={20} color={color} />
+            <Text style={[styles.bannerText, { color }]}>Crea con il modulo preventivo completo (righe, IVA, PDF)</Text>
+            <Ionicons name="chevron-forward" size={18} color={color} />
+          </Pressable>
+        ) : null}
+
         <View>
           <Text style={styles.label}>Titolo</Text>
           <TextInput
@@ -254,6 +262,8 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 },
   input: { backgroundColor: colors.card, fontSize: 17, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, color: colors.text },
   multiline: { minHeight: 110 },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, padding: 12, backgroundColor: colors.card },
+  bannerText: { flex: 1, fontSize: 15, fontWeight: '600' },
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   euro: { fontSize: 20, fontWeight: '700', color: colors.text },
   dateRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 12, gap: 8 },

@@ -86,7 +86,7 @@ export default function CategoryScreen() {
         ListEmptyComponent={<EmptyState text={`Niente qui. Tocca + per aggiungere: ${info.label.toLowerCase()}.`} />}
         contentContainerStyle={{ paddingTop: 6, paddingBottom: 100 }}
       />
-      <Fab label={`Nuovo: ${info.label}`} onPress={() => router.push({ pathname: '/item', params: { type } })} />
+      <Fab label={`Nuovo: ${info.label}`} onPress={() => (type === 'preventivo' ? router.push('/preventivo') : router.push({ pathname: '/item', params: { type } }))} />
     </View>
   );
 }

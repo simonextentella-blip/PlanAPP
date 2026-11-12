@@ -16,6 +16,8 @@ export interface Item {
   amount?: number | null;
   /** Solo per Soldi: entrata o uscita. */
   direction?: Direction | null;
+  /** Solo per Preventivi creati con il modulo completo. */
+  quote?: Quote | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -47,3 +49,32 @@ export function doneLabel(type: ItemType): string {
   if (type === 'sopralluogo') return 'Fatto';
   return 'Completato';
 }
+
+export interface QuoteLine {
+  id: string;
+  description: string;
+  qty: number;
+  unitPrice: number;
+}
+
+export interface Quote {
+  /** Es. "3/2026" */
+  number: string;
+  client: { name: string; address: string; contact: string };
+  subject: string;
+  lines: QuoteLine[];
+  /** Aliquota IVA in percentuale, es. 22. */
+  vatRate: number;
+  /** Giorni di validità dell'offerta. */
+  validityDays: number;
+  notes: string;
+}
+
+export interface Company {
+  name: string;
+  address: string;
+  vat: string;
+  contact: string;
+}
+
+export const EMPTY_COMPANY: Company = { name: '', address: '', vat: '', contact: '' };

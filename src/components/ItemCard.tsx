@@ -24,7 +24,11 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
 
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/item', params: { id: item.id } })}
+      onPress={() =>
+        item.quote
+          ? router.push({ pathname: '/preventivo-doc', params: { id: item.id } })
+          : router.push({ pathname: '/item', params: { id: item.id } })
+      }
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}
       accessibilityRole="button"
       accessibilityLabel={`${info.label}: ${item.title}`}

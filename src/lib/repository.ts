@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Item } from './types';
+import { EMPTY_COMPANY, type Company, type Item } from './types';
 
 /**
  * Punto unico di accesso ai dati. Oggi salva sul telefono (AsyncStorage);
@@ -36,4 +36,19 @@ export async function loadProfileName(): Promise<string> {
 
 export async function saveProfileName(name: string): Promise<void> {
   await AsyncStorage.setItem(PROFILE_KEY, name);
+}
+
+const COMPANY_KEY = 'planapp.company.v1';
+
+export async function loadCompany(): Promise<Company> {
+  const raw = await AsyncStorage.getItem(COMPANY_KEY);
+  try {
+    return raw ? { ...EMPTY_COMPANY, ...JSON.parse(raw) } : EMPTY_COMPANY;
+  } catch {
+    return EMPTY_COMPANY;
+  }
+}
+
+export async function saveCompany(c: Company): Promise<void> {
+  await AsyncStorage.setItem(COMPANY_KEY, JSON.stringify(c));
 }

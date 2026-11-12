@@ -5,8 +5,21 @@ import { colors } from '../lib/theme';
 import { ITEM_TYPES, TYPE_INFO } from '../lib/types';
 
 export default function ProfileScreen() {
-  const { userName, setUserName, items } = useStore();
+  const { userName, setUserName, items, company, setCompany } = useStore();
   const [draft, setDraft] = useState(userName);
+  const [comp, setComp] = useState(company);
+  const saveComp = () => setCompany({ name: comp.name.trim(), address: comp.address.trim(), vat: comp.vat.trim(), contact: comp.contact.trim() });
+  const field = (key: keyof typeof comp, placeholder: string, multiline = false) => (
+    <TextInput
+      value={comp[key]}
+      onChangeText={(v) => setComp((c) => ({ ...c, [key]: v }))}
+      onBlur={saveComp}
+      placeholder={placeholder}
+      placeholderTextColor={colors.muted}
+      style={[styles.input, { marginTop: 8 }]}
+      multiline={multiline}
+    />
+  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, gap: 16 }}>
@@ -23,6 +36,15 @@ export default function ProfileScreen() {
           returnKeyType="done"
         />
         <Text style={styles.hint}>Compare su ogni cosa che aggiungi, così il collega sa chi l’ha scritta.</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Dati azienda (per i preventivi)</Text>
+        {field('name', 'Nome azienda')}
+        {field('address', 'Indirizzo', true)}
+        {field('vat', 'Partita IVA')}
+        {field('contact', 'Telefono / email')}
+        <Text style={styles.hint}>Compaiono in alto su ogni preventivo e nel PDF.</Text>
       </View>
 
       <View style={styles.card}>

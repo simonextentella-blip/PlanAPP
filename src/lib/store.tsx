@@ -1,12 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { localRepository, loadProfileName, saveProfileName, type ItemRepository } from './repository';
-import type { Item, NewItem } from './types';
+import { loadCompany, localRepository, loadProfileName, saveCompany, saveProfileName, type ItemRepository } from './repository';
+import { EMPTY_COMPANY, type Company, type Item, type NewItem } from './types';
 
 interface StoreValue {
   ready: boolean;
   items: Item[];
   userName: string;
   setUserName(name: string): void;
+  company: Company;
+  setCompany(c: Company): void;
   addItem(data: NewItem): Item;
   updateItem(id: string, patch: Partial<NewItem>): void;
   removeItem(id: string): void;
@@ -35,10 +37,12 @@ export function StoreProvider({ children, repository = localRepository }: { chil
   const [ready, setReady] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [userName, setUserNameState] = useState('');
+  const [company, setCompanyState] = useState<Company>(EMPTY_COMPANY);
 
   useEffect(() => {
-    Promise.all([repository.loadAll(), loadProfileName()])
-      .then(([loaded, name]) => {
+    Promise.all([repository.loadAll(), loadProfileName(), loadCompany()])
+      .then(([loaded, name, comp]) => {
+        setCompanyState(comp);
         setItems(loaded);
         setUserNameState(name);
       })
@@ -62,6 +66,11 @@ export function StoreProvider({ children, repository = localRepository }: { chil
   const setUserName = useCallback((name: string) => {
     setUserNameState(name);
     saveProfileName(name).catch(() => {});
+  }, []);
+
+  const setCompany = useCallback((c: Company) => {
+    setCompanyState(c);
+    saveCompany(c).catch(() => {});
   }, []);
 
   const addItem = useCallback(
@@ -98,13 +107,15 @@ export function StoreProvider({ children, repository = localRepository }: { chil
       items: [...items].sort(compareItems),
       userName,
       setUserName,
+      company,
+      setCompany,
       addItem,
       updateItem,
       removeItem,
       toggleDone,
       getItem: (id) => items.find((it) => it.id === id),
     }),
-    [ready, items, userName, setUserName, addItem, updateItem, removeItem, toggleDone],
+    [ready, items, userName, setUserName, company, setCompany, addItem, updateItem, removeItem, toggleDone],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

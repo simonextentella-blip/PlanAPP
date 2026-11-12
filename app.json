@@ -30,7 +30,8 @@
         {
           "asyncRoutes": false
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "scheme": "planapp"
   }
