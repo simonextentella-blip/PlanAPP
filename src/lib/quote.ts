@@ -121,6 +121,7 @@ table{width:100%;border-collapse:collapse}
 .conds th{text-align:left;width:34%;padding:5px 0;border-bottom:1px solid #d9dfd6;font-weight:700;vertical-align:top}.conds td{padding:5px 0;border-bottom:1px solid #d9dfd6}
 .sign{display:flex;gap:48px;margin-top:24px;page-break-inside:avoid}.sign div{flex:1}.sign .line{border-bottom:1px solid #555;height:34px}.sign small{color:#666;font-size:7.5pt}
 .stripe.bottom{margin:18px 0 0}
+@media screen{html{background:#fff}body{width:794px;padding:40px 49px 36px}}
 </style></head><body>
 <div class="stripe"><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <div class="head"><div class="brand"><img src="${LOGO_DATA_URI}" alt=""><div><div class="bname">${spaced(company.name)}</div><div class="bowner">${esc(company.owner)}</div><div class="btag">${esc(company.tagline)}</div></div></div>
