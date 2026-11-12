@@ -21,14 +21,14 @@ const PLACEHOLDERS: Record<ItemType, string> = {
 };
 
 export default function ItemScreen() {
-  const params = useLocalSearchParams<{ id?: string; date?: string; type?: ItemType }>();
+  const params = useLocalSearchParams<{ id?: string; date?: string; type?: ItemType; nodate?: string }>();
   const { getItem, addItem, updateItem, removeItem } = useStore();
   const existing = params.id ? getItem(params.id) : undefined;
 
   const [type, setType] = useState<ItemType>(existing?.type ?? params.type ?? 'appuntamento');
   const [title, setTitle] = useState(existing?.title ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
-  const [date, setDate] = useState<string | null>(existing ? existing.date : params.date ?? (params.type === 'nota' ? null : todayISO()));
+  const [date, setDate] = useState<string | null>(existing ? existing.date : params.date ?? (params.type === 'nota' || params.nodate ? null : todayISO()));
   const [time, setTime] = useState(existing?.time ?? '');
   const [done, setDone] = useState(existing?.done ?? false);
   const [amount, setAmount] = useState(existing?.amount != null ? formatEuro(existing.amount).replace('€ ', '') : '');
@@ -146,7 +146,7 @@ export default function ItemScreen() {
             </View>
           ) : (
             <Pressable style={styles.dateRow} onPress={() => setDate(params.date ?? todayISO())}>
-              <Text style={[styles.dateText, { color: colors.muted }]}>Nessuna data (nota generale) · tocca per aggiungerla</Text>
+              <Text style={[styles.dateText, { color: colors.muted }]}>{type === 'lavoro' || type === 'todo' ? 'Nessuna data (da organizzare)' : 'Nessuna data (nota generale)'} · tocca per aggiungerla</Text>
             </Pressable>
           )}
           {date && showCalendar ? (
@@ -163,7 +163,7 @@ export default function ItemScreen() {
           ) : null}
           {date ? (
             <Pressable onPress={() => setDate(null)} style={{ marginTop: 8 }}>
-              <Text style={[styles.link, { color }]}>Togli la data</Text>
+              <Text style={[styles.link, { color }]}>{type === 'lavoro' || type === 'todo' ? 'Data non ancora decisa (da organizzare)' : 'Togli la data'}</Text>
             </Pressable>
           ) : null}
         </View>

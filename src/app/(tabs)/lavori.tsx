@@ -10,28 +10,41 @@ import { colors } from '../../lib/theme';
 import { TYPE_INFO } from '../../lib/types';
 
 type Kind = 'tutti' | 'lavoro' | 'todo';
+type Status = 'programmati' | 'organizzare' | 'completati';
 
 export default function JobsScreen() {
   const { items } = useStore();
   const [kind, setKind] = useState<Kind>('tutti');
-  const [showDone, setShowDone] = useState(false);
+  const [status, setStatus] = useState<Status>('programmati');
 
   const list = useMemo(
     () =>
       items.filter((it) => {
         if (it.type !== 'lavoro' && it.type !== 'todo') return false;
         if (kind !== 'tutti' && it.type !== kind) return false;
-        return it.done === showDone;
+        if (status === 'completati') return it.done;
+        if (it.done) return false;
+        return status === 'organizzare' ? !it.date : !!it.date;
       }),
-    [items, kind, showDone],
+    [items, kind, status],
   );
+
+  const jobs = items.filter((it) => (it.type === 'lavoro' || it.type === 'todo') && !it.done);
+  const count = { programmati: jobs.filter((it) => it.date).length, organizzare: jobs.filter((it) => !it.date).length };
+
+  const empty = {
+    programmati: 'Nessun lavoro con data. Tocca + per aggiungerne uno.',
+    organizzare: 'Niente da organizzare. Qui finiscono i lavori di cui non si conosce ancora la data.',
+    completati: 'Nessun lavoro completato.',
+  }[status];
 
   return (
     <View style={styles.container}>
       <View style={styles.filters}>
         <View style={styles.row}>
-          <Chip label="Da completare" active={!showDone} onPress={() => setShowDone(false)} />
-          <Chip label="Completati" active={showDone} onPress={() => setShowDone(true)} />
+          <Chip label={`Programmati${count.programmati ? ` (${count.programmati})` : ''}`} active={status === 'programmati'} onPress={() => setStatus('programmati')} />
+          <Chip label={`Da organizzare${count.organizzare ? ` (${count.organizzare})` : ''}`} active={status === 'organizzare'} onPress={() => setStatus('organizzare')} />
+          <Chip label="Completati" active={status === 'completati'} onPress={() => setStatus('completati')} />
         </View>
         <View style={styles.row}>
           <Chip label="Tutti" active={kind === 'tutti'} color={colors.text} onPress={() => setKind('tutti')} />
@@ -43,10 +56,10 @@ export default function JobsScreen() {
         data={list}
         keyExtractor={(it) => it.id}
         renderItem={({ item }) => <ItemCard item={item} showDate />}
-        ListEmptyComponent={<EmptyState text={showDone ? 'Nessun lavoro completato.' : 'Nessun lavoro in sospeso. Tocca + per aggiungerne uno.'} />}
+        ListEmptyComponent={<EmptyState text={empty} />}
         contentContainerStyle={{ paddingTop: 6, paddingBottom: 100 }}
       />
-      <Fab label="Nuovo lavoro" onPress={() => router.push({ pathname: '/item', params: { type: 'lavoro' } })} />
+      <Fab label="Nuovo lavoro" onPress={() => router.push({ pathname: '/item', params: status === 'organizzare' ? { type: 'lavoro', nodate: '1' } : { type: 'lavoro' } })} />
     </View>
   );
 }

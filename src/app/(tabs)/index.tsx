@@ -96,6 +96,7 @@ export default function HomeScreen() {
 
   const openJobs = items.filter((it) => (it.type === 'lavoro' || it.type === 'todo') && !it.done);
   const overdue = openJobs.filter((it) => it.date && it.date < today).length;
+  const unplanned = openJobs.filter((it) => !it.date).length;
   const todayItems = items.filter((it) => it.date === today && inCalendar(it));
   const notes = items.filter((it) => it.type === 'nota');
   const openVisits = items.filter((it) => it.type === 'sopralluogo' && !it.done);
@@ -118,7 +119,7 @@ export default function HomeScreen() {
         summary={
           openJobs.length === 0
             ? 'Tutto completato'
-            : `${plural(openJobs.length, 'da completare', 'da completare')}${overdue ? ` · ${plural(overdue, 'in ritardo', 'in ritardo')}` : ''}`
+            : `${plural(openJobs.length, 'da completare', 'da completare')}${overdue ? ` · ${plural(overdue, 'in ritardo', 'in ritardo')}` : ''}${unplanned ? ` · ${unplanned} da organizzare` : ''}`
         }
         href="/lavori"
         rows={openJobs.slice(0, 3)}
