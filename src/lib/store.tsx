@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { loadCompany, localRepository, loadProfileName, saveCompany, saveProfileName, type ItemRepository } from './repository';
+import { formatEuro } from './money';
 import { DEFAULT_COMPANY, type Company, type Item, type NewItem } from './types';
 
 interface StoreValue {
@@ -48,6 +49,48 @@ export function linkVisitsToQuotes(prev: Item[], next: Item[], author: string): 
         direction: null,
         quote: null,
         visitId: v.id,
+        createdBy: author,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+  }
+  return linkQuotesToJobs(prev, out, author);
+}
+
+/**
+ * Quando un preventivo viene accettato, crea il lavoro collegato (senza data, quindi "da organizzare").
+ * Se l'accettazione viene tolta e il lavoro non è ancora stato programmato né completato, lo toglie.
+ */
+export function linkQuotesToJobs(prev: Item[], next: Item[], author: string): Item[] {
+  const before = new Map(prev.map((it) => [it.id, it]));
+  const accepted = new Set(next.filter((it) => it.type === 'preventivo' && it.done).map((it) => it.id));
+  let out = next.filter((it) => !(it.quoteId && !it.done && !it.date && !accepted.has(it.quoteId)));
+  const now = new Date().toISOString();
+  for (const pv of next) {
+    if (pv.type !== 'preventivo' || !pv.done || before.get(pv.id)?.done) continue;
+    if (out.some((it) => it.quoteId === pv.id)) continue;
+    const q = pv.quote;
+    const title = q ? `${q.client.name}${q.subject ? ` – ${q.subject}` : ''}` : pv.title;
+    const details = [
+      q ? `Preventivo N. ${q.number} accettato${pv.amount != null ? ` · ${formatEuro(pv.amount)}` : ''}` : 'Preventivo accettato',
+      q?.client.site ? `Luogo: ${q.client.site}` : '',
+      ...(q?.works ?? []).map((w) => `• ${w.title}${w.qty ? ` (${w.qty})` : ''}`),
+    ].filter(Boolean);
+    out = [
+      ...out,
+      {
+        id: newId(),
+        type: 'lavoro',
+        title,
+        description: details.join('\n'),
+        date: null,
+        time: null,
+        done: false,
+        amount: null,
+        direction: null,
+        quote: null,
+        quoteId: pv.id,
         createdBy: author,
         createdAt: now,
         updatedAt: now,

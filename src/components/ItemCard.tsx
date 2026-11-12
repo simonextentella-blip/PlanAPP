@@ -70,6 +70,12 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
             <Text style={[styles.pillText, { color: '#8A6A00' }]}>Da preparare · dal sopralluogo</Text>
           </View>
         ) : null}
+        {item.quoteId && !item.done ? (
+          <View style={[styles.pill, { backgroundColor: '#E6EDE4' }]}>
+            <Ionicons name="receipt-outline" size={12} color="#2F3E2F" />
+            <Text style={[styles.pillText, { color: '#2F3E2F' }]}>Dal preventivo accettato</Text>
+          </View>
+        ) : null}
         {unscheduled ? (
           <View style={styles.pill}>
             <Ionicons name="time-outline" size={12} color={UNSCHEDULED.text} />

@@ -20,6 +20,8 @@ export interface Item {
   quote?: Quote | null;
   /** Preventivo nato da un sopralluogo fatto: id del sopralluogo. */
   visitId?: string | null;
+  /** Lavoro nato da un preventivo accettato: id del preventivo. */
+  quoteId?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
