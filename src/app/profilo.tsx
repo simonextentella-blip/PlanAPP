@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useStore } from '../../lib/store';
-import { colors } from '../../lib/theme';
-import { ITEM_TYPES, TYPE_INFO } from '../../lib/types';
+import { useStore } from '../lib/store';
+import { colors } from '../lib/theme';
+import { ITEM_TYPES, TYPE_INFO } from '../lib/types';
 
 export default function ProfileScreen() {
   const { userName, setUserName, items } = useStore();
