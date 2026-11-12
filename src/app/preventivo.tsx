@@ -16,11 +16,12 @@ const VALIDITY = [30, 60, 90];
 
 export default function QuoteEditor() {
   const { id, from } = useLocalSearchParams<{ id?: string; from?: string }>();
-  const { items, getItem, addItem, updateItem } = useStore();
+  const { items, getItem, addItem, updateItem, supplierFor, userName } = useStore();
   const existing = id ? getItem(id) : undefined;
   // Preventivo "da fare" creato da un sopralluogo: lo completiamo invece di crearne uno nuovo.
   const todo = from ? getItem(from) : undefined;
   const visit = todo?.visitId ? getItem(todo.visitId) : undefined;
+  const supplier = supplierFor(existing?.createdBy ?? (userName || 'Io'));
   const q: Quote | null = existing?.quote ? normalizeQuote(existing.quote as never) : null;
 
   const [number, setNumber] = useState(q?.number || nextQuoteNumber(items, new Date().getFullYear()));
@@ -111,6 +112,16 @@ export default function QuoteEditor() {
             </View>
           </View>
         ) : null}
+
+        <Pressable onPress={() => router.push('/profilo')} style={styles.supplier}>
+          <Ionicons name="business-outline" size={18} color={brand.dark} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.fromVisitTitle}>Fornitore</Text>
+            <Text style={styles.fromVisitText}>{supplier.legalName || 'Dati fornitore da compilare nel Profilo'}</Text>
+            {supplier.vat ? <Text style={styles.small}>P.IVA {supplier.vat}</Text> : <Text style={[styles.small, { color: colors.danger }]}>P.IVA mancante: tocca per inserirla</Text>}
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        </Pressable>
 
         <Card title="Preventivo">
           <Field label="Numero">
@@ -276,6 +287,7 @@ function Add({ label, onPress }: { label: string; onPress: () => void }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
+  supplier: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.card, borderRadius: 12, padding: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   fromVisit: { flexDirection: 'row', gap: 10, backgroundColor: brand.light, borderRadius: 12, padding: 12, borderLeftWidth: 4, borderColor: brand.green },
   fromVisitTitle: { fontSize: 13, fontWeight: '700', color: brand.dark },
   fromVisitText: { fontSize: 14, color: colors.text, marginTop: 2 },

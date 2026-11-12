@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
@@ -8,6 +8,8 @@ export default function ProfileScreen() {
   const { userName, setUserName, items, company, setCompany } = useStore();
   const [draft, setDraft] = useState(userName);
   const [comp, setComp] = useState(company);
+  // Cambiando nome si caricano i dati fornitore di quella persona.
+  useEffect(() => setComp(company), [company]);
   const saveComp = () => setCompany(Object.fromEntries(Object.entries(comp).map(([k, v]) => [k, String(v).trim()])) as unknown as typeof comp);
   const field = (key: keyof typeof comp, placeholder: string, multiline = false) => (
     <TextInput
@@ -39,7 +41,7 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.label}>Dati azienda (per i preventivi)</Text>
+        <Text style={styles.label}>{userName ? `Dati fornitore di ${userName}` : 'Dati fornitore'}</Text>
         {field('name', 'Nome (es. Rope Access Workers)')}
         {field('owner', 'Sottotitolo (es. di Simone Tentella)')}
         {field('tagline', 'Attività (es. Lavori in quota su funi · Tree climbing)')}
@@ -50,7 +52,7 @@ export default function ProfileScreen() {
         {field('cf', 'Codice fiscale')}
         {field('email', 'Email')}
         {field('phone', 'Telefono')}
-        <Text style={styles.hint}>Compaiono in testa a ogni preventivo e nel PDF. Li ho precompilati dal tuo modello.</Text>
+        <Text style={styles.hint}>Sono personali: ogni preventivo usa i dati di chi l’ha creato (riquadro Fornitore, intestazione e firma). Prima scrivi il tuo nome qui sopra, poi i tuoi dati.</Text>
       </View>
 
       <View style={styles.card}>

@@ -123,3 +123,21 @@ export const DEFAULT_COMPANY: Company = {
 /** Tipi che non compaiono nel calendario. */
 export const NOT_IN_CALENDAR: ItemType[] = ['preventivo'];
 export const inCalendar = (it: { type: ItemType }) => !NOT_IN_CALENDAR.includes(it.type);
+
+/** Chiave con cui si salvano i dati fornitore di una persona (nome senza maiuscole/spazi). */
+export const personKey = (name: string) => name.trim().toLowerCase();
+
+/** Dati fornitore di partenza per una persona nuova: stesso marchio, dati personali da compilare. */
+export function blankSupplier(name: string): Company {
+  return {
+    ...DEFAULT_COMPANY,
+    owner: name ? `di ${name}` : '',
+    legalName: name ? `${DEFAULT_COMPANY.name} di ${name}` : '',
+    address: '',
+    cityLine: '',
+    vat: '',
+    cf: '',
+    email: '',
+    phone: '',
+  };
+}

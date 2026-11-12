@@ -1,15 +1,18 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { loadCompany, localRepository, loadProfileName, saveCompany, saveProfileName, type ItemRepository } from './repository';
+import { loadSuppliers, localRepository, loadProfileName, saveSuppliers, saveProfileName, type ItemRepository } from './repository';
 import { formatEuro } from './money';
-import { DEFAULT_COMPANY, type Company, type Item, type NewItem } from './types';
+import { blankSupplier, DEFAULT_COMPANY, personKey, type Company, type Item, type NewItem } from './types';
 
 interface StoreValue {
   ready: boolean;
   items: Item[];
   userName: string;
   setUserName(name: string): void;
+  /** Dati fornitore della persona che usa l'app adesso. */
   company: Company;
   setCompany(c: Company): void;
+  /** Dati fornitore di una persona (es. chi ha creato un preventivo). */
+  supplierFor(name: string): Company;
   addItem(data: NewItem): Item;
   updateItem(id: string, patch: Partial<NewItem>): void;
   removeItem(id: string): void;
@@ -176,14 +179,14 @@ export function StoreProvider({ children, repository = localRepository }: { chil
   const [ready, setReady] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [userName, setUserNameState] = useState('');
-  const [company, setCompanyState] = useState<Company>(DEFAULT_COMPANY);
+  const [suppliers, setSuppliers] = useState<Record<string, Company>>({ simone: DEFAULT_COMPANY });
   const userRef = useRef('');
   userRef.current = userName;
 
   useEffect(() => {
-    Promise.all([repository.loadAll(), loadProfileName(), loadCompany()])
+    Promise.all([repository.loadAll(), loadProfileName(), loadSuppliers()])
       .then(([loaded, name, comp]) => {
-        setCompanyState(comp);
+        setSuppliers(comp);
         setItems(linkVisitsToQuotes(loaded, loaded, name || 'Io'));
         setUserNameState(name);
       })
@@ -209,10 +212,22 @@ export function StoreProvider({ children, repository = localRepository }: { chil
     saveProfileName(name).catch(() => {});
   }, []);
 
-  const setCompany = useCallback((c: Company) => {
-    setCompanyState(c);
-    saveCompany(c).catch(() => {});
-  }, []);
+  const supplierFor = useCallback(
+    (name: string) => suppliers[personKey(name)] ?? (['simone', 'io', ''].includes(personKey(name)) ? suppliers.simone ?? DEFAULT_COMPANY : blankSupplier(name.trim())),
+    [suppliers],
+  );
+  const company = useMemo(() => supplierFor(userName), [supplierFor, userName]);
+
+  const setCompany = useCallback(
+    (c: Company) => {
+      setSuppliers((prev) => {
+        const next = { ...prev, [personKey(userRef.current)]: c };
+        saveSuppliers(next).catch(() => {});
+        return next;
+      });
+    },
+    [],
+  );
 
   const addItem = useCallback(
     (data: NewItem) => {
@@ -250,13 +265,14 @@ export function StoreProvider({ children, repository = localRepository }: { chil
       setUserName,
       company,
       setCompany,
+      supplierFor,
       addItem,
       updateItem,
       removeItem,
       toggleDone,
       getItem: (id) => items.find((it) => it.id === id),
     }),
-    [ready, items, userName, setUserName, company, setCompany, addItem, updateItem, removeItem, toggleDone],
+    [ready, items, userName, setUserName, company, setCompany, supplierFor, addItem, updateItem, removeItem, toggleDone],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

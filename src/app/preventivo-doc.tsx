@@ -12,7 +12,7 @@ import { colors } from '../lib/theme';
 
 export default function QuoteDocument() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getItem, company, toggleDone, removeItem } = useStore();
+  const { getItem, supplierFor, toggleDone, removeItem } = useStore();
   const item = getItem(id);
   const [msg, setMsg] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -26,6 +26,8 @@ export default function QuoteDocument() {
       </View>
     );
   }
+  // Il fornitore è chi ha creato il preventivo.
+  const company = supplierFor(item.createdBy);
   const q = normalizeQuote(item.quote as never);
 
   async function sharePdf() {

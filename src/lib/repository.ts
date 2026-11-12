@@ -39,16 +39,21 @@ export async function saveProfileName(name: string): Promise<void> {
 }
 
 const COMPANY_KEY = 'planapp.company.v1';
+const SUPPLIERS_KEY = 'planapp.suppliers.v1';
 
-export async function loadCompany(): Promise<Company> {
-  const raw = await AsyncStorage.getItem(COMPANY_KEY);
+/** Dati fornitore di ogni persona, per nome. */
+export async function loadSuppliers(): Promise<Record<string, Company>> {
   try {
-    return raw ? { ...DEFAULT_COMPANY, ...JSON.parse(raw) } : DEFAULT_COMPANY;
+    const raw = await AsyncStorage.getItem(SUPPLIERS_KEY);
+    if (raw) return JSON.parse(raw);
+    // Versione precedente: un solo blocco "dati azienda", che era di Simone.
+    const old = await AsyncStorage.getItem(COMPANY_KEY);
+    return { simone: old ? { ...DEFAULT_COMPANY, ...JSON.parse(old) } : DEFAULT_COMPANY };
   } catch {
-    return DEFAULT_COMPANY;
+    return { simone: DEFAULT_COMPANY };
   }
 }
 
-export async function saveCompany(c: Company): Promise<void> {
-  await AsyncStorage.setItem(COMPANY_KEY, JSON.stringify(c));
+export async function saveSuppliers(s: Record<string, Company>): Promise<void> {
+  await AsyncStorage.setItem(SUPPLIERS_KEY, JSON.stringify(s));
 }
