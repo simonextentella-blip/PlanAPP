@@ -70,6 +70,12 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
             <Text style={[styles.pillText, { color: '#8A6A00' }]}>Da preparare · dal sopralluogo</Text>
           </View>
         ) : null}
+        {item.jobId ? (
+          <View style={[styles.pill, { backgroundColor: '#DDF1EC' }]}>
+            <Ionicons name="construct-outline" size={12} color="#0F766E" />
+            <Text style={[styles.pillText, { color: '#0F766E' }]}>{item.amount == null ? 'Da lavoro fatto · importo da inserire' : 'Da lavoro fatto'}</Text>
+          </View>
+        ) : null}
         {item.quoteId && !item.done ? (
           <View style={[styles.pill, { backgroundColor: '#E6EDE4' }]}>
             <Ionicons name="receipt-outline" size={12} color="#2F3E2F" />

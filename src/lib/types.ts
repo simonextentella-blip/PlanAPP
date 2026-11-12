@@ -22,6 +22,8 @@ export interface Item {
   visitId?: string | null;
   /** Lavoro nato da un preventivo accettato: id del preventivo. */
   quoteId?: string | null;
+  /** Entrata in Soldi nata da un lavoro completato: id del lavoro. */
+  jobId?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -45,7 +47,7 @@ export const ITEM_TYPES: ItemType[] = ['appuntamento', 'sopralluogo', 'lavoro', 
 export const CHECKABLE: ItemType[] = ['sopralluogo', 'lavoro', 'todo', 'preventivo'];
 
 /** Tipi con un importo in euro. */
-export const WITH_AMOUNT: ItemType[] = ['soldi', 'preventivo'];
+export const WITH_AMOUNT: ItemType[] = ['lavoro', 'soldi', 'preventivo'];
 
 /** Come si chiama lo stato "fatto" per ogni tipo. */
 export function doneLabel(type: ItemType): string {

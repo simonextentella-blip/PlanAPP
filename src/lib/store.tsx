@@ -55,7 +55,7 @@ export function linkVisitsToQuotes(prev: Item[], next: Item[], author: string): 
       },
     ];
   }
-  return linkQuotesToJobs(prev, out, author);
+  return linkJobsToMoney(prev, linkQuotesToJobs(prev, out, author), author);
 }
 
 /**
@@ -87,10 +87,51 @@ export function linkQuotesToJobs(prev: Item[], next: Item[], author: string): It
         date: null,
         time: null,
         done: false,
-        amount: null,
         direction: null,
         quote: null,
         quoteId: pv.id,
+        amount: pv.amount ?? null,
+        createdBy: author,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+  }
+  return out;
+}
+
+/**
+ * Quando un lavoro viene segnato come fatto, crea l'entrata in Soldi con il suo importo.
+ * Se la spunta viene tolta, l'entrata collegata viene eliminata.
+ */
+export function linkJobsToMoney(prev: Item[], next: Item[], author: string): Item[] {
+  const before = new Map(prev.map((it) => [it.id, it]));
+  const doneJobs = new Set(next.filter((it) => it.type === 'lavoro' && it.done).map((it) => it.id));
+  let out = next.filter((it) => !(it.jobId && !doneJobs.has(it.jobId)));
+  const now = new Date().toISOString();
+  const today = now.slice(0, 10);
+  for (const job of next) {
+    if (job.type !== 'lavoro' || !job.done || before.get(job.id)?.done) continue;
+    if (out.some((it) => it.jobId === job.id)) continue;
+    const quote = job.quoteId ? next.find((it) => it.id === job.quoteId)?.quote : null;
+    const d = new Date();
+    const when = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    out = [
+      ...out,
+      {
+        id: newId(),
+        type: 'soldi',
+        title: `Incasso lavoro: ${job.title}`,
+        description: [`Da lavoro completato il ${when}`, quote ? `Preventivo N. ${quote.number}` : '']
+          .filter(Boolean)
+          .join(' · '),
+        date: today,
+        time: null,
+        done: false,
+        amount: job.amount ?? null,
+        direction: 'entrata',
+        quote: null,
+        jobId: job.id,
         createdBy: author,
         createdAt: now,
         updatedAt: now,
