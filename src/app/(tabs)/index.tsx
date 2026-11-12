@@ -98,7 +98,7 @@ function plural(n: number, one: string, many: string) {
 }
 
 export default function HomeScreen() {
-  const { items, userName } = useStore();
+  const { items, userName, clients } = useStore();
   const today = todayISO();
 
   const openJobs = items.filter((it) => (it.type === 'lavoro' || it.type === 'todo') && !it.done);
@@ -151,6 +151,18 @@ export default function HomeScreen() {
           line={quoteLine(pendingQuotes)}
         />
         <Tile type="soldi" title="Soldi" line={`Saldo del mese ${formatEuro(money.saldo)}`} />
+        <Pressable
+          onPress={() => router.push('/clienti')}
+          style={({ pressed }) => [styles.tile, pressed && { opacity: 0.75 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Apri Clienti"
+        >
+          <View style={[styles.tileIcon, { backgroundColor: '#475569' }]}>
+            <Ionicons name="people" size={20} color="#fff" />
+          </View>
+          <Text style={styles.tileTitle}>Clienti</Text>
+          <Text style={styles.tileLine}>{clients.length ? plural(clients.length, 'cliente', 'clienti') : 'Nessun cliente'}</Text>
+        </Pressable>
       </View>
 
       <Section
@@ -187,10 +199,10 @@ const styles = StyleSheet.create({
   rowTitle: { flex: 1, fontSize: 15, color: colors.text },
   rowMeta: { fontSize: 13, color: colors.muted },
   empty: { fontSize: 14, color: colors.muted },
-  tiles: { flexDirection: 'row', gap: 10 },
-  tile: { flex: 1, minWidth: 0, backgroundColor: colors.card, borderRadius: 16, padding: 12, gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  tile: { flexBasis: '47%', flexGrow: 1, minWidth: 0, backgroundColor: colors.card, borderRadius: 16, padding: 12, gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   tileIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  tileTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
+  tileTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   tileLine: { fontSize: 12, color: colors.muted },
   addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 15 },
   addText: { color: '#fff', fontSize: 17, fontWeight: '700' },

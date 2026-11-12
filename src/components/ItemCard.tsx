@@ -16,7 +16,8 @@ const UNSCHEDULED_LABEL: Partial<Record<ItemType, string>> = {
 };
 
 export function ItemCard({ item, showDate = false }: { item: Item; showDate?: boolean }) {
-  const { toggleDone } = useStore();
+  const { toggleDone, getClient } = useStore();
+  const client = getClient(item.clientId);
   const info = TYPE_INFO[item.type];
   const checkable = CHECKABLE.includes(item.type);
   // Lavori e sopralluoghi ancora senza data: evidenziati con un colore diverso.
@@ -26,6 +27,7 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
   const meta = [
     showDate && item.date ? formatRelative(item.date) : null,
     item.time,
+    client?.name,
     amountLabel(item),
     info.label,
   ]

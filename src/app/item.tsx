@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Chip } from '../components/Chip';
+import { ClientPicker } from '../components/ClientPicker';
 import { addDays, formatRelative, isValidTime, normalizeTime, todayISO } from '../lib/dates';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 import { formatEuro, parseEuro } from '../lib/money';
-import { CHECKABLE, doneLabel, ITEM_TYPES, TYPE_INFO, WITH_AMOUNT, type Direction, type ItemType } from '../lib/types';
+import { CHECKABLE, doneLabel, ITEM_TYPES, TYPE_INFO, WITH_AMOUNT, type Direction, type ItemType, WITH_CLIENT } from '../lib/types';
 
 const PLACEHOLDERS: Record<ItemType, string> = {
   appuntamento: 'Es. Incontro con il cliente Rossi',
@@ -22,7 +23,7 @@ const PLACEHOLDERS: Record<ItemType, string> = {
 
 export default function ItemScreen() {
   const params = useLocalSearchParams<{ id?: string; date?: string; type?: ItemType; nodate?: string }>();
-  const { getItem, addItem, updateItem, removeItem } = useStore();
+  const { getItem, addItem, updateItem, removeItem, getClient } = useStore();
   const existing = params.id ? getItem(params.id) : undefined;
 
   const [type, setType] = useState<ItemType>(existing?.type ?? params.type ?? 'appuntamento');
@@ -31,6 +32,7 @@ export default function ItemScreen() {
   const [date, setDate] = useState<string | null>(existing ? existing.date : params.date ?? (params.type === 'nota' || params.nodate ? null : todayISO()));
   const [time, setTime] = useState(existing?.time ?? '');
   const [done, setDone] = useState(existing?.done ?? false);
+  const [clientId, setClientId] = useState<string | null>(existing?.clientId ?? null);
   const [amount, setAmount] = useState(existing?.amount != null ? formatEuro(existing.amount).replace('€ ', '') : '');
   const [direction, setDirection] = useState<Direction>(existing?.direction ?? 'entrata');
   const [showCalendar, setShowCalendar] = useState(false);
@@ -41,8 +43,9 @@ export default function ItemScreen() {
   const color = TYPE_INFO[type].color;
 
   function save() {
-    const t = title.trim();
-    if (!t) return setError('Scrivi un titolo.');
+    const chosen = clientId ? getClient(clientId) : undefined;
+    const t = title.trim() || (chosen ? `${TYPE_INFO[type].label} – ${chosen.name}` : '');
+    if (!t) return setError('Scrivi un titolo (o scegli un cliente).');
     const tm = time.trim();
     if (tm && !isValidTime(tm)) return setError('Orario non valido: usa il formato 09:30.');
     const hasAmount = WITH_AMOUNT.includes(type);
@@ -55,6 +58,7 @@ export default function ItemScreen() {
       date,
       time: tm && date ? normalizeTime(tm) : null,
       done: CHECKABLE.includes(type) ? done : false,
+      clientId: WITH_CLIENT.includes(type) ? clientId : null,
       amount: parsed,
       direction: type === 'soldi' ? direction : null,
     };
@@ -113,6 +117,13 @@ export default function ItemScreen() {
             <Text style={[styles.bannerText, { color }]}>Crea con il modulo preventivo completo (righe, IVA, PDF)</Text>
             <Ionicons name="chevron-forward" size={18} color={color} />
           </Pressable>
+        ) : null}
+
+        {WITH_CLIENT.includes(type) ? (
+          <View>
+            <Text style={styles.label}>Cliente</Text>
+            <ClientPicker value={clientId} onChange={(c) => setClientId(c?.id ?? null)} color={color} />
+          </View>
         ) : null}
 
         <View>

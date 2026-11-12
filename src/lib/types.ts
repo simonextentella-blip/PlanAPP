@@ -24,6 +24,8 @@ export interface Item {
   quoteId?: string | null;
   /** Entrata in Soldi nata da un lavoro completato: id del lavoro. */
   jobId?: string | null;
+  /** Cliente collegato (anagrafica Clienti). */
+  clientId?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -141,3 +143,26 @@ export function blankSupplier(name: string): Company {
     phone: '',
   };
 }
+
+export interface Client {
+  id: string;
+  name: string;
+  address: string;
+  /** CAP Città (Prov.) */
+  cityLine: string;
+  /** C.F. / P.IVA */
+  taxId: string;
+  phone: string;
+  email: string;
+  notes: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type NewClient = Omit<Client, 'id' | 'createdBy' | 'createdAt' | 'updatedAt'>;
+
+export const EMPTY_CLIENT: NewClient = { name: '', address: '', cityLine: '', taxId: '', phone: '', email: '', notes: '' };
+
+/** Tipi a cui si può collegare un cliente. */
+export const WITH_CLIENT: ItemType[] = ['appuntamento', 'sopralluogo', 'lavoro', 'preventivo', 'soldi'];

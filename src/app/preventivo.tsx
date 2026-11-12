@@ -3,6 +3,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Chip } from '../components/Chip';
+import { ClientPicker } from '../components/ClientPicker';
 import { brand } from '../lib/brand';
 import { addDays, todayISO } from '../lib/dates';
 import { formatEuro, parseEuro } from '../lib/money';
@@ -16,7 +17,7 @@ const VALIDITY = [30, 60, 90];
 
 export default function QuoteEditor() {
   const { id, from } = useLocalSearchParams<{ id?: string; from?: string }>();
-  const { items, getItem, addItem, updateItem, supplierFor, userName } = useStore();
+  const { items, getItem, addItem, updateItem, supplierFor, userName, getClient, clients, addClient, updateClient } = useStore();
   const existing = id ? getItem(id) : undefined;
   // Preventivo "da fare" creato da un sopralluogo: lo completiamo invece di crearne uno nuovo.
   const todo = from ? getItem(from) : undefined;
@@ -27,7 +28,14 @@ export default function QuoteEditor() {
   const [number, setNumber] = useState(q?.number || nextQuoteNumber(items, new Date().getFullYear()));
   const [date, setDate] = useState(existing?.date ?? todayISO());
   const [validity, setValidity] = useState(q?.validityDays ?? 60);
-  const [client, setClient] = useState(q?.client ?? { name: '', address: '', cityLine: '', taxId: '', site: '' });
+  const startClient = getClient(existing?.clientId ?? todo?.clientId);
+  const [clientId, setClientId] = useState<string | null>(startClient?.id ?? null);
+  const [client, setClient] = useState(
+    q?.client ??
+      (startClient
+        ? { name: startClient.name, address: startClient.address, cityLine: startClient.cityLine, taxId: startClient.taxId, site: '' }
+        : { name: '', address: '', cityLine: '', taxId: '', site: '' }),
+  );
   const [subject, setSubject] = useState(q?.subject ?? '');
   const visitNote = todo ? [todo.title, todo.description].filter(Boolean).join(' — ') : '';
   const [team, setTeam] = useState<QuoteTeamRow[]>(q?.team ?? DEFAULT_TEAM());
@@ -67,7 +75,21 @@ export default function QuoteEditor() {
       conditions: conditions.filter((c) => c.label.trim() || c.value.trim()).map((c) => ({ ...c, label: c.label.trim(), value: c.value.trim() })),
       validityDays: validity,
     };
+    // Collega (o crea) il cliente in anagrafica.
+    let cid = clientId;
+    if (!cid) {
+      const same = clients.find((c) => c.name.trim().toLowerCase() === quote.client.name.toLowerCase());
+      cid = (same ?? addClient({ name: quote.client.name, address: quote.client.address, cityLine: quote.client.cityLine, taxId: quote.client.taxId, phone: '', email: '', notes: '' })).id;
+    }
+    const reg = getClient(cid);
+    if (reg) {
+      // Completa i dati mancanti in anagrafica con quelli scritti nel preventivo.
+      const fill: Record<string, string> = {};
+      for (const k of ['address', 'cityLine', 'taxId'] as const) if (!reg[k] && quote.client[k]) fill[k] = quote.client[k];
+      if (Object.keys(fill).length) updateClient(reg.id, fill);
+    }
     const data = {
+      clientId: cid,
       type: 'preventivo' as const,
       title: `${quote.client.name}${quote.subject ? ` – ${quote.subject}` : ''}`,
       description: `Preventivo N. ${quote.number}${quote.client.site ? ` · ${quote.client.site}` : ''}`,
@@ -148,6 +170,16 @@ export default function QuoteEditor() {
         </Card>
 
         <Card title="Cliente">
+          <ClientPicker
+            value={clientId}
+            color={ACCENT}
+            onChange={(c) => {
+              setClientId(c?.id ?? null);
+              if (c) setClient((cur) => ({ ...cur, name: c.name, address: c.address, cityLine: c.cityLine, taxId: c.taxId }));
+              setError('');
+            }}
+          />
+          <Text style={styles.small}>oppure scrivi i dati: il cliente verrà salvato in Clienti</Text>
           <Input value={client.name} onChangeText={setC('name')} placeholder="Nome e cognome / ragione sociale *" />
           <Input value={client.address} onChangeText={setC('address')} placeholder="Indirizzo" />
           <Input value={client.cityLine} onChangeText={setC('cityLine')} placeholder="CAP Città (Prov.)" />

@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { loadSuppliers, localRepository, loadProfileName, saveSuppliers, saveProfileName, type ItemRepository } from './repository';
+import { loadClients, saveClients, loadSuppliers, localRepository, loadProfileName, saveSuppliers, saveProfileName, type ItemRepository } from './repository';
 import { formatEuro } from './money';
-import { blankSupplier, DEFAULT_COMPANY, personKey, type Company, type Item, type NewItem } from './types';
+import { blankSupplier, DEFAULT_COMPANY, personKey, type Client, type Company, type Item, type NewClient, type NewItem } from './types';
 
 interface StoreValue {
   ready: boolean;
@@ -18,6 +18,11 @@ interface StoreValue {
   removeItem(id: string): void;
   toggleDone(id: string): void;
   getItem(id: string): Item | undefined;
+  clients: Client[];
+  getClient(id: string | null | undefined): Client | undefined;
+  addClient(data: NewClient): Client;
+  updateClient(id: string, patch: Partial<NewClient>): void;
+  removeClient(id: string): void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -52,6 +57,7 @@ export function linkVisitsToQuotes(prev: Item[], next: Item[], author: string): 
         direction: null,
         quote: null,
         visitId: v.id,
+        clientId: v.clientId ?? null,
         createdBy: author,
         createdAt: now,
         updatedAt: now,
@@ -99,6 +105,7 @@ export function linkQuotesToJobs(prev: Item[], next: Item[], author: string): It
         direction: null,
         quote: null,
         quoteId: pv.id,
+        clientId: pv.clientId ?? null,
         amount: pv.amount ?? null,
         createdBy: author,
         createdAt: now,
@@ -155,6 +162,7 @@ export function linkJobsToMoney(prev: Item[], next: Item[], author: string): Ite
         direction: 'entrata',
         quote: null,
         jobId: job.id,
+        clientId: job.clientId ?? null,
         createdBy: author,
         createdAt: now,
         updatedAt: now,
@@ -180,12 +188,14 @@ export function StoreProvider({ children, repository = localRepository }: { chil
   const [items, setItems] = useState<Item[]>([]);
   const [userName, setUserNameState] = useState('');
   const [suppliers, setSuppliers] = useState<Record<string, Company>>({ simone: DEFAULT_COMPANY });
+  const [clients, setClients] = useState<Client[]>([]);
   const userRef = useRef('');
   userRef.current = userName;
 
   useEffect(() => {
-    Promise.all([repository.loadAll(), loadProfileName(), loadSuppliers()])
-      .then(([loaded, name, comp]) => {
+    Promise.all([repository.loadAll(), loadProfileName(), loadSuppliers(), loadClients()])
+      .then(([loaded, name, comp, cl]) => {
+        setClients(cl);
         setSuppliers(comp);
         setItems(linkVisitsToQuotes(loaded, loaded, name || 'Io'));
         setUserNameState(name);
@@ -257,6 +267,38 @@ export function StoreProvider({ children, repository = localRepository }: { chil
     [commit],
   );
 
+  const commitClients = useCallback((updater: (prev: Client[]) => Client[]) => {
+    setClients((prev) => {
+      const next = updater(prev);
+      saveClients(next).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const addClient = useCallback(
+    (data: NewClient) => {
+      const now = new Date().toISOString();
+      const c: Client = { ...data, id: newId(), createdBy: userRef.current || 'Io', createdAt: now, updatedAt: now };
+      commitClients((prev) => [...prev, c]);
+      return c;
+    },
+    [commitClients],
+  );
+  const updateClient = useCallback(
+    (id: string, patch: Partial<NewClient>) => {
+      const now = new Date().toISOString();
+      commitClients((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch, updatedAt: now } : c)));
+    },
+    [commitClients],
+  );
+  const removeClient = useCallback(
+    (id: string) => {
+      commitClients((prev) => prev.filter((c) => c.id !== id));
+      commit((prev) => prev.map((it) => (it.clientId === id ? { ...it, clientId: null } : it)));
+    },
+    [commitClients, commit],
+  );
+
   const value = useMemo<StoreValue>(
     () => ({
       ready,
@@ -271,8 +313,13 @@ export function StoreProvider({ children, repository = localRepository }: { chil
       removeItem,
       toggleDone,
       getItem: (id) => items.find((it) => it.id === id),
+      clients: [...clients].sort((a, b) => a.name.localeCompare(b.name, 'it')),
+      getClient: (id) => (id ? clients.find((c) => c.id === id) : undefined),
+      addClient,
+      updateClient,
+      removeClient,
     }),
-    [ready, items, userName, setUserName, company, setCompany, supplierFor, addItem, updateItem, removeItem, toggleDone],
+    [ready, items, userName, setUserName, company, setCompany, supplierFor, addItem, updateItem, removeItem, toggleDone, clients, addClient, updateClient, removeClient],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
