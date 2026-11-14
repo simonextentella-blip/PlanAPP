@@ -3,15 +3,14 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Avatar } from './Avatar';
 import { amountLabel } from '../lib/money';
-import { formatRelative } from '../lib/dates';
+import { formatCardDate } from '../lib/dates';
 import { useStore } from '../lib/store';
-import { colors } from '../lib/theme';
+import { colors, unscheduled as UNSCHEDULED } from '../lib/theme';
 import { CHECKABLE, TYPE_INFO, type Item, type ItemType } from '../lib/types';
 
-const UNSCHEDULED = { bg: '#FFF7E8', border: '#F3C677', text: '#A15C07' };
 const UNSCHEDULED_LABEL: Partial<Record<ItemType, string>> = {
-  lavoro: 'Da organizzare',
-  todo: 'Da organizzare',
+  lavoro: 'Scegli una data',
+  todo: 'Scegli una data',
   sopralluogo: 'Data da concordare',
 };
 
@@ -25,11 +24,10 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
   const unscheduled = !item.date && !item.done && UNSCHEDULED_LABEL[item.type] !== undefined;
 
   const meta = [
-    showDate && item.date ? formatRelative(item.date) : null,
+    showDate && item.date ? formatCardDate(item.date) : null,
     item.time,
     client?.name,
     amountLabel(item),
-    info.label,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -47,10 +45,9 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
       accessibilityRole="button"
       accessibilityLabel={`${info.label}: ${item.title}`}
     >
-      <View style={[styles.bar, { backgroundColor: info.color }]} />
       {checkable ? (
         <Pressable onPress={() => toggleDone(item.id)} hitSlop={12} style={styles.check} accessibilityRole="checkbox" accessibilityState={{ checked: item.done }}>
-          <Ionicons name={item.done ? 'checkmark-circle' : 'ellipse-outline'} size={26} color={item.done ? info.color : colors.muted} />
+          <Ionicons name={item.done ? 'checkmark-circle' : 'ellipse-outline'} size={26} color={item.done ? info.color : unscheduled ? UNSCHEDULED.ring : '#C9CEC6'} />
         </Pressable>
       ) : (
         <View style={styles.check}>
@@ -84,13 +81,18 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
             <Text style={[styles.pillText, { color: '#2F3E2F' }]}>Dal preventivo accettato</Text>
           </View>
         ) : null}
-        {unscheduled ? (
-          <View style={styles.pill}>
-            <Ionicons name="time-outline" size={12} color={UNSCHEDULED.text} />
-            <Text style={styles.pillText}>{UNSCHEDULED_LABEL[item.type]}</Text>
+        <View style={styles.metaRow}>
+          {unscheduled ? (
+            <View style={styles.pickDate}>
+              <Ionicons name="time-outline" size={14} color={UNSCHEDULED.text} />
+              <Text style={styles.pickDateText}>{UNSCHEDULED_LABEL[item.type]}</Text>
+            </View>
+          ) : null}
+          {meta ? <Text style={styles.meta}>{meta}</Text> : null}
+          <View style={[styles.tag, { backgroundColor: `${info.color}1A` }]}>
+            <Text style={[styles.tagText, { color: info.color }]}>{info.label}</Text>
           </View>
-        ) : null}
-        <Text style={styles.meta}>{meta}</Text>
+        </View>
       </View>
       <View style={styles.avatar}>
         <Avatar name={item.createdBy} />
@@ -103,7 +105,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: 16,
     marginHorizontal: 16,
     marginVertical: 5,
     overflow: 'hidden',
@@ -113,12 +115,16 @@ const styles = StyleSheet.create({
   unscheduled: { backgroundColor: UNSCHEDULED.bg, borderColor: UNSCHEDULED.border, borderStyle: 'dashed', borderWidth: 1 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: '#FDE9C4', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginTop: 5 },
   pillText: { fontSize: 11, fontWeight: '700', color: UNSCHEDULED.text },
-  bar: { width: 4 },
-  check: { paddingHorizontal: 12, justifyContent: 'center' },
-  body: { flex: 1, paddingVertical: 12, paddingRight: 8 },
-  avatar: { justifyContent: 'center', paddingRight: 12 },
+  check: { paddingLeft: 14, paddingRight: 12, justifyContent: 'center' },
+  body: { flex: 1, paddingVertical: 14, paddingRight: 8 },
+  avatar: { justifyContent: 'center', paddingRight: 14 },
   title: { fontSize: 16, fontWeight: '600', color: colors.text },
   done: { textDecorationLine: 'line-through', color: colors.muted },
   desc: { fontSize: 14, color: colors.text, marginTop: 2, opacity: 0.8 },
-  meta: { fontSize: 12, color: colors.muted, marginTop: 4 },
+  pickDate: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  pickDateText: { fontSize: 13, fontWeight: '600', color: UNSCHEDULED.text },
+  metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 5 },
+  meta: { fontSize: 13, color: colors.muted, flexShrink: 1 },
+  tag: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  tagText: { fontSize: 12, fontWeight: '600' },
 });

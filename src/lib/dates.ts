@@ -59,3 +59,33 @@ export function normalizeTime(s: string): string {
   const [h, m] = s.split(':');
   return `${pad(Number(h))}:${m}`;
 }
+
+/** Data corta per le righe della Home: "08:00" oggi, "dom 08:00" nei prossimi giorni, "mar 17", "17 dic". */
+export function formatShort(iso: string, time?: string | null): string {
+  const today = todayISO();
+  if (iso === today) return time ?? 'oggi';
+  const d = parseISODate(iso);
+  const diff = Math.round((d.getTime() - parseISODate(today).getTime()) / 86400000);
+  const day = DAYS[d.getDay()].slice(0, 3);
+  if (diff > 0 && diff < 7 && time) return `${day} ${time}`;
+  if (Math.abs(diff) < 28) return `${day} ${d.getDate()}`;
+  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`;
+}
+
+/** "sabato 14 novembre" (senza anno) */
+export function formatDayMonth(iso: string): string {
+  const d = parseISODate(iso);
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+/** Data per le schede: "Oggi", "Domani", "Martedì 17" se vicina, "17 dicembre", oppure con l'anno se lontana. */
+export function formatCardDate(iso: string): string {
+  const rel = formatRelative(iso);
+  if (rel === 'Oggi' || rel === 'Domani' || rel === 'Ieri') return rel;
+  const today = parseISODate(todayISO());
+  const d = parseISODate(iso);
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+  if (Math.abs(diff) < 28) return `${capitalize(DAYS[d.getDay()])} ${d.getDate()}`;
+  if (d.getFullYear() === today.getFullYear()) return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return rel;
+}

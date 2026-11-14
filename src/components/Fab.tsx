@@ -1,11 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { colors } from '../lib/theme';
 
-export function Fab({ onPress, label }: { onPress: () => void; label: string }) {
+/** Pulsante tondo "+" in basso a destra; con `extended` mostra anche la scritta. */
+export function Fab({ onPress, label, extended = false }: { onPress: () => void; label: string; extended?: boolean }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.fab, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={label}>
-      <Ionicons name="add" size={30} color="#fff" />
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.fab, extended && styles.extended, pressed && { opacity: 0.8 }]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Ionicons name="add" size={extended ? 24 : 30} color="#fff" />
+      {extended ? <Text style={styles.label}>{label}</Text> : null}
     </Pressable>
   );
 }
@@ -15,16 +22,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     bottom: 20,
-    width: 58,
+    minWidth: 58,
     height: 58,
     borderRadius: 29,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
     shadowColor: '#000',
     shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
     elevation: 5,
   },
+  extended: { paddingLeft: 18, paddingRight: 22 },
+  label: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

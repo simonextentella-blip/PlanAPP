@@ -27,7 +27,7 @@ js = js.replace(/<\/script/gi, '<\\/script');
 const out = `<title>PlanApp</title>
 <style>
   html, body { height: 100%; }
-  body { overflow: hidden; background: #F5F6F8; color: #111827; color-scheme: light; }
+  body { overflow: hidden; background: #F4F5F2; color: #111827; color-scheme: light; }
   #root { display: flex; height: 100%; flex: 1; }
 </style>
 <div id="root"></div>
