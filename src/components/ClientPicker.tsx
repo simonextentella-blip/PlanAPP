@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { CAN_IMPORT_CONTACTS, pickContact } from '../lib/contacts';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 import { EMPTY_CLIENT, type Client } from '../lib/types';
@@ -17,6 +18,21 @@ export function ClientPicker({ value, onChange, color = colors.primary }: { valu
   const q = query.trim().toLowerCase();
   const list = q ? clients.filter((c) => `${c.name} ${c.cityLine} ${c.phone}`.toLowerCase().includes(q)) : clients;
   const exact = clients.some((c) => c.name.trim().toLowerCase() === q);
+
+  const [importError, setImportError] = useState('');
+
+  async function importFromContacts() {
+    setImportError('');
+    try {
+      const c = await pickContact();
+      if (!c) return;
+      if (!c.name) return setImportError('Il contatto scelto non ha un nome.');
+      const same = clients.find((x) => x.name.trim().toLowerCase() === c.name.toLowerCase() && (!c.phone || x.phone.replace(/\s/g, '') === c.phone.replace(/\s/g, '')));
+      pick(same ?? addClient({ ...EMPTY_CLIENT, name: c.name, phone: c.phone, email: c.email }));
+    } catch (e) {
+      setImportError(e instanceof Error && e.message.startsWith('Per importare') ? e.message : 'Non è stato possibile leggere il contatto.');
+    }
+  }
 
   function pick(c: Client | null) {
     onChange(c);
@@ -65,6 +81,13 @@ export function ClientPicker({ value, onChange, color = colors.primary }: { valu
             <Ionicons name="search" size={18} color={colors.muted} />
             <TextInput value={query} onChangeText={setQuery} placeholder="Cerca o scrivi un nuovo nome…" placeholderTextColor={colors.muted} style={styles.searchInput} autoFocus />
           </View>
+          {CAN_IMPORT_CONTACTS && !q ? (
+            <Pressable onPress={importFromContacts} style={styles.newRow}>
+              <Ionicons name="person-add-outline" size={22} color={color} />
+              <Text style={[styles.newText, { color }]}>Importa dai contatti</Text>
+            </Pressable>
+          ) : null}
+          {importError ? <Text style={styles.importError}>{importError}</Text> : null}
           {q && !exact ? (
             <Pressable onPress={() => pick(addClient({ ...EMPTY_CLIENT, name: query.trim() }))} style={styles.newRow}>
               <Ionicons name="add-circle" size={22} color={color} />
@@ -109,5 +132,6 @@ const styles = StyleSheet.create({
   newRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14 },
   newText: { fontSize: 16, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  importError: { color: colors.danger, fontSize: 14, paddingHorizontal: 16, paddingBottom: 8 },
   empty: { padding: 24, textAlign: 'center', color: colors.muted },
 });

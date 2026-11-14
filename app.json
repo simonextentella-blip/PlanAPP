@@ -8,7 +8,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.planapp.app"
+      "bundleIdentifier": "com.planapp.app",
+      "infoPlist": {
+        "NSContactsUsageDescription": "PlanApp usa i contatti per importare nome e telefono di un cliente."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +21,10 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.planapp.app"
+      "package": "com.planapp.app",
+      "blockedPermissions": [
+        "android.permission.WRITE_CONTACTS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -31,7 +37,13 @@
           "asyncRoutes": false
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "PlanApp usa i contatti per importare nome e telefono di un cliente."
+        }
+      ]
     ],
     "scheme": "planapp"
   }
