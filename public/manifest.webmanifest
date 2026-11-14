@@ -1,0 +1,16 @@
+{
+  "name": "PlanApp",
+  "short_name": "PlanApp",
+  "lang": "it",
+  "start_url": "/PlanAPP/",
+  "scope": "/PlanAPP/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F5F2",
+  "theme_color": "#2F3E2F",
+  "icons": [
+    { "src": "/PlanAPP/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/PlanAPP/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/PlanAPP/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

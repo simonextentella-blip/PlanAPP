@@ -28,7 +28,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "output": "single"
+      "output": "single",
+      "name": "PlanApp",
+      "shortName": "PlanApp",
+      "lang": "it",
+      "themeColor": "#2F3E2F",
+      "backgroundColor": "#F4F5F2"
     },
     "plugins": [
       [
@@ -45,6 +50,9 @@
         }
       ]
     ],
-    "scheme": "planapp"
+    "scheme": "planapp",
+    "experiments": {
+      "baseUrl": "/PlanAPP"
+    }
   }
 }

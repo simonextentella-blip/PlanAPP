@@ -34,7 +34,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:pwa": "expo export --platform web && cp dist/index.html dist/404.html && touch dist/.nojekyll"
   },
   "private": true
 }

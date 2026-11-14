@@ -6,10 +6,14 @@ import path from 'node:path';
 
 const dist = path.resolve('dist');
 const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
-const scripts = [...html.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map((m) => m[1]);
+// L'export usa il percorso della PWA (experiments.baseUrl, es. /PlanAPP): qui lo togliamo.
+const base = (JSON.parse(fs.readFileSync('app.json', 'utf8')).expo.experiments?.baseUrl ?? '').replace(/\/$/, '');
+const strip = (u) => (base && u.startsWith(base + '/') ? u.slice(base.length) : u);
+const scripts = [...html.matchAll(/<script src="([^"]+)" defer><\/script>/g)].map((m) => strip(m[1]));
 
 let js = scripts.map((src) => fs.readFileSync(path.join(dist, src), 'utf8')).join('\n;\n');
-js = js.replace(/"(\/assets\/[^"]+)"/g, (_, url) => {
+js = js.replace(/"((?:\/[A-Za-z0-9_-]+)?\/assets\/[^"]+)"/g, (_, full) => {
+  const url = strip(full);
   const file = path.join(dist, url);
   if (url.endsWith('.ttf')) {
     if (!url.includes('/Ionicons.')) return '""';
