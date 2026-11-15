@@ -19,6 +19,8 @@ export default function ProfileScreen() {
             ? `Tutto sincronizzato${sync.lastSync ? ` · ore ${hhmm(sync.lastSync)}` : ''}`
             : 'Non collegato';
   const [draft, setDraft] = useState(userName);
+  // Il nome può arrivare dopo (sincronizzazione): aggiorna la casella.
+  useEffect(() => setDraft(userName), [userName]);
   const [comp, setComp] = useState(company);
   // Cambiando nome si caricano i dati fornitore di quella persona.
   useEffect(() => setComp(company), [company]);
@@ -49,7 +51,7 @@ export default function ProfileScreen() {
           style={styles.input}
           returnKeyType="done"
         />
-        <Text style={styles.hint}>Compare su ogni cosa che aggiungi, così il collega sa chi l’ha scritta.</Text>
+        <Text style={styles.hint}>Compare nel saluto in Home e su ogni cosa che aggiungi. Lo scrivi una volta e resta su tutti i tuoi telefoni; il collega scrive il suo dal suo profilo.</Text>
       </View>
 
       <View style={styles.card}>

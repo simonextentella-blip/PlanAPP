@@ -8,7 +8,7 @@ import { supabase, TABLE } from './supabase';
  * così non si perde niente anche senza campo. Le cancellazioni restano come righe "deleted",
  * così anche l'altro telefono sa che vanno tolte.
  */
-export type Collection = 'items' | 'clients' | 'accounts' | 'suppliers';
+export type Collection = 'items' | 'clients' | 'accounts' | 'suppliers' | 'profiles';
 
 export interface RemoteRecord {
   collection: Collection;
