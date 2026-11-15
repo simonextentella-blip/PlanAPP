@@ -245,11 +245,6 @@ export default function HomeScreen() {
         rows={latestNotes}
         empty="Nessuna nota scritta."
       />
-
-      <Pressable onPress={() => router.push('/item')} style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.8 }]}>
-        <Ionicons name="add" size={22} color="#fff" />
-        <Text style={styles.addText}>Aggiungi qualcosa</Text>
-      </Pressable>
     </ScrollView>
   );
 }
@@ -280,6 +275,4 @@ const styles = StyleSheet.create({
   tileValue: { flex: 1, textAlign: 'right', fontSize: 28, fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
   tileTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
   tileLine: { fontSize: 13, color: colors.muted },
-  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 15 },
-  addText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 });

@@ -8,6 +8,8 @@ export const colors = {
   /** Linee sottili tra le righe di un riquadro. */
   divider: '#EDF0EA',
   primary: '#2F3E2F',
+  /** Verde acceso per il + al centro della barra sotto, che deve saltare all'occhio. */
+  accent: '#3E9B4F',
   danger: '#DC2626',
 };
 
