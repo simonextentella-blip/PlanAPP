@@ -1,17 +1,17 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Chip } from '../../components/Chip';
 import { EmptyState } from '../../components/EmptyState';
 import { Fab } from '../../components/Fab';
 import { ItemCard } from '../../components/ItemCard';
 import { useStore } from '../../lib/store';
+import { brand } from '../../lib/brand';
 import { colors, unscheduled } from '../../lib/theme';
 import { TYPE_INFO, type Item } from '../../lib/types';
 
 type Kind = 'tutti' | 'lavoro' | 'todo';
-type Status = 'tutti' | 'programmati' | 'organizzare' | 'completati';
+type Status = 'aperti' | 'organizzare' | 'completati';
 
 /** Per data e ora, dal più vicino. */
 function byDate(a: Item, b: Item) {
@@ -24,7 +24,7 @@ export default function JobsScreen() {
   const { items } = useStore();
   const insets = useSafeAreaInsets();
   const [kind, setKind] = useState<Kind>('tutti');
-  const [status, setStatus] = useState<Status>('tutti');
+  const [status, setStatus] = useState<Status>('aperti');
 
   const sections = useMemo(() => {
     const ofKind = items.filter((it) => (it.type === 'lavoro' || it.type === 'todo') && (kind === 'tutti' || it.type === kind));
@@ -33,8 +33,7 @@ export default function JobsScreen() {
     const toPlan = open.filter((it) => !it.date);
     const planned = open.filter((it) => it.date).sort(byDate);
     if (status === 'organizzare') return [{ key: 'organizzare', title: '', data: toPlan }];
-    if (status === 'programmati') return [{ key: 'programmati', title: '', data: planned }];
-    // "Tutti": prima quelli da organizzare, poi quelli con la data.
+    // "Aperti": prima quelli da organizzare, poi quelli con la data.
     return [
       { key: 'organizzare', title: 'Da organizzare', data: toPlan },
       { key: 'programmati', title: 'Programmati', data: planned },
@@ -42,11 +41,10 @@ export default function JobsScreen() {
   }, [items, kind, status]);
 
   const jobs = items.filter((it) => (it.type === 'lavoro' || it.type === 'todo') && !it.done);
-  const count = { programmati: jobs.filter((it) => it.date).length, organizzare: jobs.filter((it) => !it.date).length };
+  const count = { aperti: jobs.length, organizzare: jobs.filter((it) => !it.date).length };
 
   const empty = {
-    tutti: 'Nessun lavoro in sospeso. Tocca + per aggiungerne uno.',
-    programmati: 'Nessun lavoro con data. Tocca + per aggiungerne uno.',
+    aperti: 'Nessun lavoro in sospeso. Tocca + per aggiungerne uno.',
     organizzare: 'Niente da organizzare. Qui finiscono i lavori di cui non si conosce ancora la data.',
     completati: 'Nessun lavoro completato.',
   }[status];
@@ -54,6 +52,12 @@ export default function JobsScreen() {
   const summary = jobs.length
     ? `${jobs.length} ${jobs.length === 1 ? 'aperto' : 'aperti'}${count.organizzare ? ` · ${count.organizzare} da organizzare` : ''}`
     : 'Tutto completato';
+
+  const statuses: { key: Status; label: string; count?: number; warn?: boolean }[] = [
+    { key: 'aperti', label: 'Aperti', count: count.aperti },
+    { key: 'organizzare', label: 'Da organizzare', count: count.organizzare, warn: true },
+    { key: 'completati', label: 'Fatti' },
+  ];
 
   const kinds: { key: Kind; label: string }[] = [
     { key: 'tutti', label: 'Tutti' },
@@ -71,24 +75,46 @@ export default function JobsScreen() {
           <View style={[styles.head, { paddingTop: insets.top + 16 }]}>
             <Text style={styles.title}>Lavori</Text>
             <Text style={styles.summary}>{summary}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips} contentContainerStyle={{ paddingHorizontal: 16 }}>
-              <Chip label={`Tutti${jobs.length ? ` ${jobs.length}` : ''}`} active={status === 'tutti'} onPress={() => setStatus('tutti')} />
-              <Chip label={`Programmati${count.programmati ? ` ${count.programmati}` : ''}`} active={status === 'programmati'} onPress={() => setStatus('programmati')} />
-              <Chip label={`Da organizzare${count.organizzare ? ` ${count.organizzare}` : ''}`} active={status === 'organizzare'} onPress={() => setStatus('organizzare')} />
-              <Chip label="Completati" active={status === 'completati'} onPress={() => setStatus('completati')} />
-            </ScrollView>
+            {/* Barra unica: lo stato dei lavori, ognuno col suo numerino. */}
             <View style={styles.segment} accessibilityRole="tablist">
-              {kinds.map((k) => (
-                <Pressable
-                  key={k.key}
-                  onPress={() => setKind(k.key)}
-                  style={[styles.segBtn, kind === k.key && styles.segActive]}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: kind === k.key }}
-                >
-                  <Text style={[styles.segText, kind === k.key && styles.segTextActive]}>{k.label}</Text>
-                </Pressable>
-              ))}
+              {statuses.map((st) => {
+                const on = status === st.key;
+                return (
+                  <Pressable
+                    key={st.key}
+                    onPress={() => setStatus(st.key)}
+                    style={[styles.segBtn, on && styles.segActive]}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[styles.segText, on && styles.segTextActive]} numberOfLines={1}>
+                      {st.label}
+                    </Text>
+                    {st.count ? (
+                      <View style={[styles.badge, on && styles.badgeActive, st.warn && styles.badgeWarn]}>
+                        <Text style={[styles.badgeText, on && styles.badgeTextActive, st.warn && styles.badgeTextWarn]}>{st.count}</Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+            {/* Sotto, pillole leggere per il tipo. */}
+            <View style={styles.kinds}>
+              {kinds.map((k) => {
+                const on = kind === k.key;
+                return (
+                  <Pressable
+                    key={k.key}
+                    onPress={() => setKind(k.key)}
+                    style={[styles.pill, on && styles.pillActive]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[styles.pillText, on && styles.pillTextActive]}>{k.label}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         }
@@ -102,7 +128,7 @@ export default function JobsScreen() {
         contentContainerStyle={{ paddingBottom: 110 }}
       />
       <Fab
-        extended
+        square
         label="Nuovo lavoro"
         onPress={() => router.push({ pathname: '/item', params: status === 'organizzare' ? { type: 'lavoro', nodate: '1' } : { type: 'lavoro' } })}
       />
@@ -118,18 +144,33 @@ const styles = StyleSheet.create({
   chips: { marginTop: 14, flexGrow: 0 },
   segment: {
     flexDirection: 'row',
-    alignSelf: 'flex-start',
-    marginTop: 10,
-    marginLeft: 16,
+    marginTop: 14,
+    marginHorizontal: 16,
     padding: 3,
-    borderRadius: 10,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: '#E8EBE5',
   },
-  segBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 7 },
-  segActive: { backgroundColor: colors.text },
-  segText: { fontSize: 14, fontWeight: '500', color: colors.text },
-  segTextActive: { color: '#fff', fontWeight: '600' },
+  segBtn: { flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 9, borderRadius: 9 },
+  segActive: {
+    backgroundColor: colors.card,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  segText: { fontSize: 14, fontWeight: '600', color: '#4B5563' },
+  segTextActive: { color: colors.primary },
+  badge: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
+  badgeActive: { backgroundColor: brand.light },
+  badgeWarn: { backgroundColor: '#FDE9C4' },
+  badgeText: { fontSize: 11.5, fontWeight: '600', color: colors.muted },
+  badgeTextActive: { color: colors.primary },
+  badgeTextWarn: { color: unscheduled.text },
+  kinds: { flexDirection: 'row', gap: 6, marginTop: 12, paddingHorizontal: 16 },
+  pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
+  pillActive: { backgroundColor: brand.light },
+  pillText: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  pillTextActive: { color: colors.primary },
   sectionTitle: { fontSize: 13, fontWeight: '700', letterSpacing: 0.8, color: colors.muted, paddingHorizontal: 20, marginTop: 18, marginBottom: 6 },
 });
