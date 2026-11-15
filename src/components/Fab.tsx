@@ -2,16 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { colors } from '../lib/theme';
 
-/** Pulsante tondo "+" in basso a destra; con `extended` mostra anche la scritta. */
-export function Fab({ onPress, label, extended = false }: { onPress: () => void; label: string; extended?: boolean }) {
+/** Pulsante tondo "+" in basso a destra; con `extended` mostra anche la scritta, con `square` è un quadrato piccolo. */
+export function Fab({ onPress, label, extended = false, square = false }: { onPress: () => void; label: string; extended?: boolean; square?: boolean }) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.fab, extended && styles.extended, pressed && { opacity: 0.8 }]}
+      style={({ pressed }) => [styles.fab, extended && styles.extended, square && styles.square, pressed && { opacity: 0.8 }]}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <Ionicons name="add" size={extended ? 24 : 30} color="#fff" />
+      <Ionicons name="add" size={extended ? 24 : square ? 28 : 30} color="#fff" />
       {extended ? <Text style={styles.label}>{label}</Text> : null}
     </Pressable>
   );
@@ -37,5 +37,6 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   extended: { paddingLeft: 18, paddingRight: 22 },
+  square: { minWidth: 52, width: 52, height: 52, borderRadius: 16 },
   label: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
