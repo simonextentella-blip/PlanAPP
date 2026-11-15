@@ -1,10 +1,8 @@
-import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '../../components/EmptyState';
-import { Fab } from '../../components/Fab';
-import { ItemCard } from '../../components/ItemCard';
+import { ItemRow } from '../../components/ItemRow';
 import { useStore } from '../../lib/store';
 import { brand } from '../../lib/brand';
 import { colors, unscheduled } from '../../lib/theme';
@@ -120,17 +118,14 @@ export default function JobsScreen() {
         }
         renderSectionHeader={({ section }) =>
           section.title ? (
-            <Text style={[styles.sectionTitle, section.key === 'organizzare' && { color: unscheduled.text }]}>{section.title.toUpperCase()}</Text>
-          ) : null
+            <Text style={[styles.sectionTitle, section.key === 'organizzare' && { color: unscheduled.text }]}>{section.key === 'organizzare' ? '● ' : ''}{section.title.toUpperCase()}</Text>
+          ) : (
+            <View style={{ height: 14 }} />
+          )
         }
-        renderItem={({ item }) => <ItemCard item={item} showDate />}
+        renderItem={({ item, index, section }) => <ItemRow item={item} first={index === 0} last={index === section.data.length - 1} />}
         ListEmptyComponent={<EmptyState text={empty} />}
-        contentContainerStyle={{ paddingBottom: 110 }}
-      />
-      <Fab
-        square
-        label="Nuovo lavoro"
-        onPress={() => router.push({ pathname: '/item', params: status === 'organizzare' ? { type: 'lavoro', nodate: '1' } : { type: 'lavoro' } })}
+        contentContainerStyle={{ paddingBottom: 40 }}
       />
     </View>
   );
