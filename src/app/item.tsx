@@ -11,7 +11,7 @@ import { formatPickerDate, isValidTime, normalizeTime, todayISO } from '../lib/d
 import { useStore } from '../lib/store';
 import { colors, unscheduled } from '../lib/theme';
 import { formatEuro, parseEuro } from '../lib/money';
-import { CHECKABLE, doneLabel, TYPE_INFO, WITH_AMOUNT, type Direction, type ItemType, WITH_CLIENT } from '../lib/types';
+import { CHECKABLE, doneLabel, TYPE_INFO, WITH_AMOUNT, type Direction, type ItemType, type MoneyAccount, WITH_CLIENT } from '../lib/types';
 
 const PLACEHOLDERS: Record<ItemType, string> = {
   appuntamento: 'Es. Incontro con il cliente Rossi',
@@ -35,12 +35,12 @@ function newTitle(type: ItemType): string {
 }
 
 export default function ItemScreen() {
-  const params = useLocalSearchParams<{ id?: string; date?: string; type?: ItemType; nodate?: string }>();
+  const params = useLocalSearchParams<{ id?: string; date?: string; type?: ItemType; nodate?: string; account?: MoneyAccount; direction?: Direction; title?: string }>();
   const { getItem, addItem, updateItem, removeItem, getClient } = useStore();
   const existing = params.id ? getItem(params.id) : undefined;
 
   const [type, setType] = useState<ItemType>(existing?.type ?? params.type ?? 'sopralluogo');
-  const [title, setTitle] = useState(existing?.title ?? '');
+  const [title, setTitle] = useState(existing?.title ?? params.title ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
   const [date, setDate] = useState<string | null>(existing ? existing.date : params.date ?? (params.type === 'nota' || params.nodate ? null : todayISO()));
   const [time, setTime] = useState(existing?.time ?? '');
@@ -48,7 +48,9 @@ export default function ItemScreen() {
   const [clientId, setClientId] = useState<string | null>(existing?.clientId ?? null);
   const [amount, setAmount] = useState(existing?.amount != null ? formatEuro(existing.amount).replace('€ ', '') : '');
   const [photos, setPhotos] = useState<string[]>(existing?.photos ?? []);
-  const [direction, setDirection] = useState<Direction>(existing?.direction ?? 'entrata');
+  const [direction, setDirection] = useState<Direction>(existing?.direction ?? params.direction ?? 'entrata');
+  // Movimento del Conto lavori: entrata = saldo messo sul conto, uscita = spesa.
+  const account: MoneyAccount | null = type === 'soldi' ? existing?.account ?? (params.account === 'lavori' ? 'lavori' : null) : null;
   const [showCalendar, setShowCalendar] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -77,6 +79,7 @@ export default function ItemScreen() {
       clientId: WITH_CLIENT.includes(type) ? clientId : null,
       amount: parsed,
       direction: type === 'soldi' ? direction : null,
+      account,
       ...(type === 'sopralluogo' ? { photos } : {}),
     };
     if (type === 'sopralluogo') deletePhotos((existing?.photos ?? []).filter((p) => !photos.includes(p)));
@@ -106,7 +109,7 @@ export default function ItemScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen
         options={{
-          title: isEdit ? 'Modifica' : typeFixed ? newTitle(type) : 'Nuovo',
+          title: account ? (direction === 'uscita' ? (isEdit ? 'Modifica spesa' : 'Nuova spesa') : 'Saldo conto lavori') : isEdit ? 'Modifica' : typeFixed ? newTitle(type) : 'Nuovo',
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={10}>
               <Text style={styles.headerBtn}>Annulla</Text>
@@ -171,7 +174,7 @@ export default function ItemScreen() {
               setTitle(v);
               setError('');
             }}
-            placeholder={PLACEHOLDERS[type]}
+            placeholder={account ? (direction === 'uscita' ? 'Es. Benzina furgone, corde nuove' : 'Saldo iniziale') : PLACEHOLDERS[type]}
             placeholderTextColor={colors.muted}
             style={styles.input}
             autoFocus={!isEdit}
@@ -263,8 +266,8 @@ export default function ItemScreen() {
 
         {WITH_AMOUNT.includes(type) ? (
           <View>
-            <Text style={styles.label}>Importo</Text>
-            {type === 'soldi' ? (
+            <Text style={styles.label}>{account ? (direction === 'uscita' ? 'Quanto hai speso' : 'Saldo del conto') : 'Importo'}</Text>
+            {type === 'soldi' && !account ? (
               <View style={[styles.chips, { marginBottom: 10 }]}>
                 <Chip label="Entrata" color="#16A34A" active={direction === 'entrata'} onPress={() => setDirection('entrata')} />
                 <Chip label="Uscita" color={colors.danger} active={direction === 'uscita'} onPress={() => setDirection('uscita')} />

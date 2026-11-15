@@ -2,6 +2,8 @@ export type ItemType = 'appuntamento' | 'lavoro' | 'todo' | 'nota' | 'sopralluog
 
 export type Direction = 'entrata' | 'uscita';
 
+export type MoneyAccount = 'lavori';
+
 export interface Item {
   id: string;
   type: ItemType;
@@ -16,6 +18,11 @@ export interface Item {
   amount?: number | null;
   /** Solo per Soldi: entrata o uscita. */
   direction?: Direction | null;
+  /**
+   * Solo per Soldi: conto a parte a cui appartiene il movimento.
+   * 'lavori' = Conto lavori, con il suo saldo: non entra nei totali generali di Soldi.
+   */
+  account?: MoneyAccount | null;
   /** Solo per Preventivi creati con il modulo completo. */
   quote?: Quote | null;
   /** Preventivo nato da un sopralluogo fatto: id del sopralluogo. */

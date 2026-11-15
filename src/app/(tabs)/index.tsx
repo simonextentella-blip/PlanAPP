@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import { capitalize, formatDayMonth, formatShort, todayISO } from '../../lib/dates';
-import { amountLabel, formatEuro, totals } from '../../lib/money';
+import { amountLabel, formatEuro, inWorkAccount, totals } from '../../lib/money';
 import { useStore } from '../../lib/store';
 import { colors, unscheduled as UNSCHEDULED } from '../../lib/theme';
 import { inCalendar, TYPE_INFO, type Item, type ItemType } from '../../lib/types';
@@ -152,7 +152,7 @@ export default function HomeScreen() {
   const openVisits = items.filter((it) => it.type === 'sopralluogo' && !it.done);
   const pendingQuotes = items.filter((it) => it.type === 'preventivo' && !it.done);
   const month = today.slice(0, 7);
-  const money = totals(items.filter((it) => it.type === 'soldi' && it.date?.startsWith(month)));
+  const money = totals(items.filter((it) => it.type === 'soldi' && !inWorkAccount(it) && it.date?.startsWith(month)));
   const visitsToAgree = openVisits.filter((it) => !it.date).length;
   const monthName = formatDayMonth(today).split(' ').pop();
   const latestNotes = [...notes].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)).slice(0, 3);

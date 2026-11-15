@@ -7,7 +7,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { Fab } from '../../components/Fab';
 import { ItemCard } from '../../components/ItemCard';
 import { MONTH_NAMES, todayISO } from '../../lib/dates';
-import { formatEuro, totals } from '../../lib/money';
+import { formatEuro, inWorkAccount, totals, workAccountTotals } from '../../lib/money';
 import { useStore } from '../../lib/store';
 import { colors } from '../../lib/theme';
 import { doneLabel, ITEM_TYPES, TYPE_INFO, type ItemType } from '../../lib/types';
@@ -35,12 +35,19 @@ function CategoryScreen({ type }: { type: ItemType }) {
   const [quoteFilter, setQuoteFilter] = useState<'dafare' | 'attesa' | 'accettati'>('dafare');
 
   const isMoney = type === 'soldi';
+  // Soldi ha due viste: Generale e Conto lavori (conto a parte con il suo saldo).
+  const [moneyView, setMoneyView] = useState<'generale' | 'lavori'>('generale');
+  const isWorkAccount = isMoney && moneyView === 'lavori';
 
   const list = useMemo(
     () =>
       items.filter((it) => {
         if (it.type !== type) return false;
-        if (isMoney) return it.date == null || it.date.startsWith(month);
+        if (isMoney) {
+          if (isWorkAccount) return inWorkAccount(it);
+          if (inWorkAccount(it)) return false;
+          return it.date == null || it.date.startsWith(month);
+        }
         if (isQuote) {
           if (quoteFilter === 'accettati') return it.done;
           if (it.done) return false;
@@ -50,12 +57,19 @@ function CategoryScreen({ type }: { type: ItemType }) {
         if (it.done !== showDone) return false;
         return true;
       }),
-    [items, type, isMoney, isQuote, quoteFilter, month, showDone],
+    [items, type, isMoney, isWorkAccount, isQuote, quoteFilter, month, showDone],
   );
 
   const openQuotes = items.filter((it) => it.type === 'preventivo' && !it.done);
   const quoteCount = { toDo: openQuotes.filter((it) => !it.quote && it.visitId).length, pending: openQuotes.filter((it) => it.quote || !it.visitId).length };
   const t = totals(list);
+  const acc = workAccountTotals(items);
+  const accountItems = items.filter(inWorkAccount);
+  const balanceItem = accountItems.find((it) => it.direction === 'entrata');
+  function openBalance() {
+    if (balanceItem) router.push({ pathname: '/item', params: { id: balanceItem.id } });
+    else router.push({ pathname: '/item', params: { type: 'soldi', account: 'lavori', direction: 'entrata', title: 'Saldo iniziale' } });
+  }
   const quoteTotal = list.reduce((s, it) => s + (it.amount ?? 0), 0);
   const [y, m] = month.split('-').map(Number);
 
@@ -64,6 +78,30 @@ function CategoryScreen({ type }: { type: ItemType }) {
       <Stack.Screen options={{ title: info.plural }} />
       <View style={styles.header}>
         {isMoney ? (
+          <View style={styles.segment} accessibilityRole="tablist">
+            {(['generale', 'lavori'] as const).map((v) => {
+              const on = moneyView === v;
+              return (
+                <Pressable key={v} onPress={() => setMoneyView(v)} style={[styles.segBtn, on && styles.segActive]} accessibilityRole="tab" accessibilityState={{ selected: on }}>
+                  <Text style={[styles.segText, on && styles.segTextActive]}>{v === 'generale' ? 'Generale' : 'Conto lavori'}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+        {isWorkAccount ? (
+          <>
+            <View style={styles.stats}>
+              <Stat label="Saldo" value={formatEuro(acc.saldo)} color={colors.text} />
+              <Stat label="Spese" value={formatEuro(acc.spese)} color={colors.danger} />
+              <Stat label="Rimane" value={formatEuro(acc.rimane)} color={acc.rimane < 0 ? colors.danger : '#16A34A'} />
+            </View>
+            <Pressable onPress={openBalance} style={({ pressed }) => [styles.balanceBtn, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+              <Ionicons name={balanceItem ? 'create-outline' : 'wallet-outline'} size={18} color={colors.primary} />
+              <Text style={styles.balanceText}>{balanceItem ? 'Modifica saldo' : 'Imposta il saldo del conto'}</Text>
+            </Pressable>
+          </>
+        ) : isMoney ? (
           <>
             <View style={styles.monthRow}>
               <Pressable onPress={() => setMonth(shiftMonth(month, -1))} hitSlop={10} accessibilityLabel="Mese precedente">
@@ -110,10 +148,10 @@ function CategoryScreen({ type }: { type: ItemType }) {
         data={list}
         keyExtractor={(it) => it.id}
         renderItem={({ item }) => <ItemCard item={item} showDate />}
-        ListEmptyComponent={<EmptyState text={isQuote && quoteFilter === 'dafare' ? 'Nessun preventivo da preparare. Quando segni un sopralluogo come fatto, il preventivo da preparare compare qui.' : `Niente qui. Tocca + per aggiungere: ${info.label.toLowerCase()}.`} />}
+        ListEmptyComponent={<EmptyState text={isWorkAccount ? 'Il Conto lavori ha un saldo tutto suo. Imposta il saldo, poi tocca + per aggiungere le spese: scalano solo da qui, non dai totali di Soldi.' : isQuote && quoteFilter === 'dafare' ? 'Nessun preventivo da preparare. Quando segni un sopralluogo come fatto, il preventivo da preparare compare qui.' : `Niente qui. Tocca + per aggiungere: ${info.label.toLowerCase()}.`} />}
         contentContainerStyle={{ paddingTop: 6, paddingBottom: 100 }}
       />
-      <Fab label={`Nuovo: ${info.label}`} onPress={() => (type === 'preventivo' ? router.push('/preventivo') : router.push({ pathname: '/item', params: { type } }))} />
+      <Fab label={isWorkAccount ? 'Nuova spesa' : `Nuovo: ${info.label}`} onPress={() => (isWorkAccount ? router.push({ pathname: '/item', params: { type: 'soldi', account: 'lavori', direction: 'uscita' } }) : type === 'preventivo' ? router.push('/preventivo') : router.push({ pathname: '/item', params: { type } }))} />
     </View>
   );
 }
@@ -140,4 +178,11 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 16, fontWeight: '700', marginTop: 4, fontVariant: ['tabular-nums'] },
   chips: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 },
   summary: { fontSize: 14, color: colors.muted },
+  segment: { flexDirection: 'row', padding: 3, borderRadius: 12, backgroundColor: '#E8EBE5' },
+  segBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 9 },
+  segActive: { backgroundColor: colors.card, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  segText: { fontSize: 14, fontWeight: '600', color: '#4B5563' },
+  segTextActive: { color: colors.primary },
+  balanceBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: colors.border },
+  balanceText: { fontSize: 15, fontWeight: '600', color: colors.primary },
 });

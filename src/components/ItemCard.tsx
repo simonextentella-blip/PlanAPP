@@ -98,7 +98,7 @@ export function ItemCard({ item, showDate = false, hideType = false }: { item: I
           ) : null}
           {hideType ? null : (
             <View style={[styles.tag, { backgroundColor: `${info.color}1A` }]}>
-              <Text style={[styles.tagText, { color: info.color }]}>{info.label}</Text>
+              <Text style={[styles.tagText, { color: info.color }]}>{item.type === 'soldi' && item.account === 'lavori' ? 'Conto lavori' : info.label}</Text>
             </View>
           )}
         </View>
