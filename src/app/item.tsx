@@ -5,6 +5,8 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Swit
 import { Calendar } from 'react-native-calendars';
 import { Chip } from '../components/Chip';
 import { ClientPicker } from '../components/ClientPicker';
+import { ChainPhotos, PhotoEditor } from '../components/Photos';
+import { deletePhotos } from '../lib/photos';
 import { formatPickerDate, isValidTime, normalizeTime, todayISO } from '../lib/dates';
 import { useStore } from '../lib/store';
 import { colors, unscheduled } from '../lib/theme';
@@ -45,6 +47,7 @@ export default function ItemScreen() {
   const [done, setDone] = useState(existing?.done ?? false);
   const [clientId, setClientId] = useState<string | null>(existing?.clientId ?? null);
   const [amount, setAmount] = useState(existing?.amount != null ? formatEuro(existing.amount).replace('€ ', '') : '');
+  const [photos, setPhotos] = useState<string[]>(existing?.photos ?? []);
   const [direction, setDirection] = useState<Direction>(existing?.direction ?? 'entrata');
   const [showCalendar, setShowCalendar] = useState(false);
   const [error, setError] = useState('');
@@ -74,7 +77,9 @@ export default function ItemScreen() {
       clientId: WITH_CLIENT.includes(type) ? clientId : null,
       amount: parsed,
       direction: type === 'soldi' ? direction : null,
+      ...(type === 'sopralluogo' ? { photos } : {}),
     };
+    if (type === 'sopralluogo') deletePhotos((existing?.photos ?? []).filter((p) => !photos.includes(p)));
     if (existing) updateItem(existing.id, data);
     else addItem(data);
     router.back();
@@ -253,6 +258,8 @@ export default function ItemScreen() {
             textAlignVertical="top"
           />
         </View>
+
+        {type === 'sopralluogo' ? <PhotoEditor photos={photos} onChange={setPhotos} /> : existing ? <ChainPhotos item={existing} /> : null}
 
         {WITH_AMOUNT.includes(type) ? (
           <View>

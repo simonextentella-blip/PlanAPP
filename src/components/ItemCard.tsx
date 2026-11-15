@@ -6,7 +6,7 @@ import { amountLabel } from '../lib/money';
 import { formatCardDate } from '../lib/dates';
 import { useStore } from '../lib/store';
 import { colors, unscheduled as UNSCHEDULED } from '../lib/theme';
-import { CHECKABLE, TYPE_INFO, type Item, type ItemType } from '../lib/types';
+import { chainPhotos, CHECKABLE, countPhotos, TYPE_INFO, type Item, type ItemType } from '../lib/types';
 
 const UNSCHEDULED_LABEL: Partial<Record<ItemType, string>> = {
   lavoro: 'Scegli una data',
@@ -15,7 +15,8 @@ const UNSCHEDULED_LABEL: Partial<Record<ItemType, string>> = {
 };
 
 export function ItemCard({ item, showDate = false, hideType = false }: { item: Item; showDate?: boolean; hideType?: boolean }) {
-  const { toggleDone, getClient } = useStore();
+  const { toggleDone, getClient, getItem } = useStore();
+  const nPhotos = countPhotos(chainPhotos(item, getItem));
   const client = getClient(item.clientId);
   const info = TYPE_INFO[item.type];
   const checkable = CHECKABLE.includes(item.type);
@@ -89,6 +90,12 @@ export function ItemCard({ item, showDate = false, hideType = false }: { item: I
             </View>
           ) : null}
           {meta ? <Text style={styles.meta}>{meta}</Text> : null}
+          {nPhotos ? (
+            <View style={styles.photos} accessibilityLabel={`${nPhotos} foto`}>
+              <Ionicons name="camera-outline" size={14} color={colors.muted} />
+              <Text style={styles.meta}>{nPhotos}</Text>
+            </View>
+          ) : null}
           {hideType ? null : (
             <View style={[styles.tag, { backgroundColor: `${info.color}1A` }]}>
               <Text style={[styles.tagText, { color: info.color }]}>{info.label}</Text>
@@ -127,6 +134,7 @@ const styles = StyleSheet.create({
   pickDateText: { fontSize: 13, fontWeight: '600', color: UNSCHEDULED.text },
   metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 5 },
   meta: { fontSize: 13, color: colors.muted, flexShrink: 1 },
+  photos: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   tag: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
   tagText: { fontSize: 12, fontWeight: '600' },
 });

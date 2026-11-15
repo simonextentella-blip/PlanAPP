@@ -48,6 +48,14 @@
         {
           "contactsPermission": "PlanApp usa i contatti per importare nome e telefono di un cliente."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PlanApp usa le foto per allegarle ai sopralluoghi.",
+          "cameraPermission": "PlanApp usa la fotocamera per scattare le foto dei sopralluoghi.",
+          "microphonePermission": false
+        }
       ]
     ],
     "scheme": "planapp",

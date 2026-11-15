@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { loadClients, saveClients, loadSuppliers, localRepository, loadProfileName, saveSuppliers, saveProfileName, type ItemRepository } from './repository';
 import { formatEuro } from './money';
+import { deletePhotos } from './photos';
 import { blankSupplier, DEFAULT_COMPANY, personKey, type Client, type Company, type Item, type NewClient, type NewItem } from './types';
 
 interface StoreValue {
@@ -257,7 +258,24 @@ export function StoreProvider({ children, repository = localRepository }: { chil
     [commit],
   );
 
-  const removeItem = useCallback((id: string) => commit((prev) => prev.filter((it) => it.id !== id)), [commit]);
+  const removeItem = useCallback(
+    (id: string) =>
+      commit((prev) => {
+        const gone = prev.find((it) => it.id === id);
+        const rest = prev.filter((it) => it.id !== id);
+        const photos = gone?.photos ?? [];
+        if (!photos.length) return rest;
+        // Le foto passano all'elemento che ne è nato (preventivo o lavoro), così non si perdono.
+        // (solo se resta: un preventivo ancora vuoto o un lavoro non programmato vengono tolti insieme)
+        const child = rest.find((it) => (it.visitId === id && (it.quote || it.done)) || (it.quoteId === id && (it.done || it.date)));
+        if (!child) {
+          deletePhotos(photos);
+          return rest;
+        }
+        return rest.map((it) => (it.id === child.id ? { ...it, photos: [...photos, ...(it.photos ?? [])] } : it));
+      }),
+    [commit],
+  );
 
   const toggleDone = useCallback(
     (id: string) => {
