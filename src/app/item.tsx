@@ -11,7 +11,7 @@ import { formatPickerDate, isValidTime, normalizeTime, todayISO } from '../lib/d
 import { useStore } from '../lib/store';
 import { colors, unscheduled } from '../lib/theme';
 import { formatEuro, parseEuro } from '../lib/money';
-import { CHECKABLE, doneLabel, ITEM_TYPES, TYPE_INFO, WITH_AMOUNT, type Direction, type ItemType, WITH_CLIENT } from '../lib/types';
+import { CHECKABLE, doneLabel, TYPE_INFO, WITH_AMOUNT, type Direction, type ItemType, WITH_CLIENT } from '../lib/types';
 
 const PLACEHOLDERS: Record<ItemType, string> = {
   appuntamento: 'Es. Incontro con il cliente Rossi',
@@ -23,12 +23,23 @@ const PLACEHOLDERS: Record<ItemType, string> = {
   preventivo: 'Es. Preventivo bagno Verdi',
 };
 
+/** Tipi che si scelgono dal + generale; gli altri si creano dalla loro sezione. */
+const QUICK_TYPES: ItemType[] = ['sopralluogo', 'lavoro', 'preventivo'];
+
+/** Titolo della schermata quando il tipo è già deciso, es. "Nuovo sopralluogo". */
+function newTitle(type: ItemType): string {
+  if (type === 'nota') return 'Nuova nota';
+  if (type === 'todo') return 'Nuova cosa da fare';
+  if (type === 'soldi') return 'Nuovo movimento';
+  return `Nuovo ${TYPE_INFO[type].label.toLowerCase()}`;
+}
+
 export default function ItemScreen() {
   const params = useLocalSearchParams<{ id?: string; date?: string; type?: ItemType; nodate?: string }>();
   const { getItem, addItem, updateItem, removeItem, getClient } = useStore();
   const existing = params.id ? getItem(params.id) : undefined;
 
-  const [type, setType] = useState<ItemType>(existing?.type ?? params.type ?? 'appuntamento');
+  const [type, setType] = useState<ItemType>(existing?.type ?? params.type ?? 'sopralluogo');
   const [title, setTitle] = useState(existing?.title ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
   const [date, setDate] = useState<string | null>(existing ? existing.date : params.date ?? (params.type === 'nota' || params.nodate ? null : todayISO()));
@@ -44,6 +55,8 @@ export default function ItemScreen() {
 
   const isEdit = !!existing;
   const color = TYPE_INFO[type].color;
+  // La scelta del tipo serve solo quando si crea dal + generale: dentro una sezione il tipo è già deciso.
+  const typeFixed = isEdit || !!params.type;
 
   function save() {
     const chosen = clientId ? getClient(clientId) : undefined;
@@ -93,7 +106,7 @@ export default function ItemScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen
         options={{
-          title: isEdit ? 'Modifica' : 'Nuovo',
+          title: isEdit ? 'Modifica' : typeFixed ? newTitle(type) : 'Nuovo',
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={10}>
               <Text style={styles.headerBtn}>Annulla</Text>
@@ -107,14 +120,33 @@ export default function ItemScreen() {
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, gap: 18, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
-        <View>
-          <Text style={styles.label}>Tipo</Text>
-          <View style={styles.chips}>
-            {ITEM_TYPES.map((t) => (
-              <Chip key={t} label={TYPE_INFO[t].label} color={TYPE_INFO[t].color} active={type === t} onPress={() => setType(t)} />
-            ))}
+        {typeFixed ? null : (
+          <View>
+            <Text style={styles.label}>Tipo</Text>
+            <View style={styles.tiles}>
+              {QUICK_TYPES.map((t) => {
+                const info = TYPE_INFO[t];
+                const on = type === t;
+                return (
+                  <Pressable
+                    key={t}
+                    onPress={() => (t === 'preventivo' ? router.replace('/preventivo') : setType(t))}
+                    style={({ pressed }) => [styles.tile, on && { borderColor: info.color, borderWidth: 2, backgroundColor: info.color + '1A' }, pressed && { opacity: 0.7 }]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <View style={[styles.tileIcon, { backgroundColor: on ? info.color : info.color + '1A' }]}>
+                      <Ionicons name={info.icon as keyof typeof Ionicons.glyphMap} size={24} color={on ? '#fff' : info.color} />
+                    </View>
+                    <Text style={[styles.tileText, on && { color: info.color }]} numberOfLines={1}>
+                      {info.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-        </View>
+        )}
 
         {type === 'preventivo' && !isEdit ? (
           <Pressable onPress={() => router.replace('/preventivo')} style={[styles.banner, { borderColor: color }]}>
@@ -289,6 +321,10 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   headerBtn: { fontSize: 17, color: colors.primary, paddingHorizontal: 8 },
   label: { fontSize: 13, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  tiles: { flexDirection: 'row', gap: 10 },
+  tile: { flex: 1, alignItems: 'center', gap: 8, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 4 },
+  tileIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  tileText: { fontSize: 14, fontWeight: '600', color: '#374151' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 },
   input: { backgroundColor: colors.card, fontSize: 17, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, color: colors.text },
   multiline: { minHeight: 110 },

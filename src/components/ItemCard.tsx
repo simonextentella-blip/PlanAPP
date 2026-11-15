@@ -14,7 +14,7 @@ const UNSCHEDULED_LABEL: Partial<Record<ItemType, string>> = {
   sopralluogo: 'Data da concordare',
 };
 
-export function ItemCard({ item, showDate = false }: { item: Item; showDate?: boolean }) {
+export function ItemCard({ item, showDate = false, hideType = false }: { item: Item; showDate?: boolean; hideType?: boolean }) {
   const { toggleDone, getClient, getItem } = useStore();
   const nPhotos = countPhotos(chainPhotos(item, getItem));
   const client = getClient(item.clientId);
@@ -96,9 +96,11 @@ export function ItemCard({ item, showDate = false }: { item: Item; showDate?: bo
               <Text style={styles.meta}>{nPhotos}</Text>
             </View>
           ) : null}
-          <View style={[styles.tag, { backgroundColor: `${info.color}1A` }]}>
-            <Text style={[styles.tagText, { color: info.color }]}>{info.label}</Text>
-          </View>
+          {hideType ? null : (
+            <View style={[styles.tag, { backgroundColor: `${info.color}1A` }]}>
+              <Text style={[styles.tagText, { color: info.color }]}>{info.label}</Text>
+            </View>
+          )}
         </View>
       </View>
       <View style={styles.avatar}>
