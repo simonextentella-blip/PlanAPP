@@ -147,6 +147,11 @@ export default function HomeScreen() {
   const openJobs = items.filter((it) => (it.type === 'lavoro' || it.type === 'todo') && !it.done);
   const overdue = openJobs.filter((it) => it.date && it.date < today).length;
   const unplanned = openJobs.filter((it) => !it.date).length;
+  // In Home solo i prossimi: da oggi in poi in ordine di data, poi quelli da organizzare. Niente lavori con data passata.
+  const nextJobs = [
+    ...openJobs.filter((it) => it.date && it.date >= today).sort((a, b) => (`${a.date} ${a.time ?? '99:99'}` < `${b.date} ${b.time ?? '99:99'}` ? -1 : 1)),
+    ...openJobs.filter((it) => !it.date),
+  ];
   const todayItems = items.filter((it) => it.date === today && inCalendar(it));
   const notes = items.filter((it) => it.type === 'nota');
   const openVisits = items.filter((it) => it.type === 'sopralluogo' && !it.done);
@@ -188,7 +193,7 @@ export default function HomeScreen() {
             : `${plural(openJobs.length, 'da completare', 'da completare')}${overdue ? ` · ${plural(overdue, 'in ritardo', 'in ritardo')}` : ''}${unplanned ? ` · ${unplanned} da organizzare` : ''}`
         }
         href="/lavori"
-        rows={openJobs.slice(0, 3)}
+        rows={nextJobs.slice(0, 3)}
         empty="Nessun lavoro in sospeso."
       />
 
