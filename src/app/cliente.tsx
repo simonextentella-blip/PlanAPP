@@ -4,9 +4,16 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ItemCard } from '../components/ItemCard';
 import { CAN_IMPORT_CONTACTS, pickContact } from '../lib/contacts';
+import { openPhone, type PhoneAction } from '../lib/phone';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 import { EMPTY_CLIENT, type NewClient } from '../lib/types';
+
+const PHONE_ACTIONS: { action: PhoneAction; label: string; icon: keyof typeof Ionicons.glyphMap; color?: string }[] = [
+  { action: 'call', label: 'Chiama', icon: 'call-outline' },
+  { action: 'sms', label: 'Messaggio', icon: 'chatbubble-outline' },
+  { action: 'whatsapp', label: 'WhatsApp', icon: 'logo-whatsapp', color: '#25D366' },
+];
 
 const FIELDS: { key: keyof NewClient; label: string; placeholder: string; keyboard?: 'phone-pad' | 'email-address'; multiline?: boolean }[] = [
   { key: 'name', label: 'Nome e cognome / ragione sociale', placeholder: 'Es. Giovanni Bardocci' },
@@ -44,6 +51,13 @@ export default function ClientScreen() {
     }
   }
 
+  const hasPhone = data.phone.replace(/\D/g, '').length >= 6;
+
+  async function contact(action: PhoneAction) {
+    setError('');
+    if (!(await openPhone(action, data.phone))) setError('Non è stato possibile aprire l\'app sul telefono.');
+  }
+
   function save() {
     if (!data.name.trim()) return setError('Scrivi il nome del cliente.');
     const clean = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v).trim()])) as unknown as NewClient;
@@ -65,6 +79,16 @@ export default function ClientScreen() {
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {hasPhone ? (
+          <View style={styles.actions}>
+            {PHONE_ACTIONS.map((a) => (
+              <Pressable key={a.action} onPress={() => contact(a.action)} style={styles.actionBtn} accessibilityRole="button" accessibilityLabel={`${a.label} ${data.name}`.trim()}>
+                <Ionicons name={a.icon} size={22} color={a.color ?? colors.primary} />
+                <Text style={styles.actionText}>{a.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         {CAN_IMPORT_CONTACTS ? (
           <Pressable onPress={importFromContacts} style={styles.importBtn} accessibilityRole="button">
             <Ionicons name="person-add-outline" size={18} color={colors.primary} />
@@ -130,6 +154,9 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.card, borderRadius: 14, padding: 14, gap: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   label: { fontSize: 12, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.4 },
   input: { fontSize: 16, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: colors.text },
+  actions: { flexDirection: 'row', gap: 10 },
+  actionBtn: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 12, borderRadius: 12, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  actionText: { fontSize: 13, fontWeight: '700', color: colors.text },
   importBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: colors.primary, borderRadius: 12, paddingVertical: 12, backgroundColor: colors.card },
   importText: { color: colors.primary, fontSize: 16, fontWeight: '700' },
   error: { color: colors.danger, fontSize: 14 },
