@@ -20,6 +20,7 @@ function Section({
   rows,
   empty,
   hideToday = false,
+  hideRows = false,
 }: {
   title: string;
   icon: IconName;
@@ -30,6 +31,8 @@ function Section({
   empty: string;
   /** Nel Calendario di oggi la data è sottintesa: si mostra solo l'orario. */
   hideToday?: boolean;
+  /** Solo intestazione e riepilogo, senza l'elenco sotto. */
+  hideRows?: boolean;
 }) {
   return (
     <Pressable
@@ -48,22 +51,24 @@ function Section({
         </View>
         <Ionicons name="chevron-forward" size={22} color={colors.muted} />
       </View>
-      <View style={styles.rows}>
-        {rows.length === 0 ? (
-          <Text style={styles.empty}>{empty}</Text>
-        ) : (
-          rows.map((it, i) => (
-            <View key={it.id} style={[styles.row, i > 0 && styles.rowDivider]}>
-              <View style={[styles.dot, { backgroundColor: TYPE_INFO[it.type].color }]} />
-              <Text style={styles.rowTitle} numberOfLines={1}>
-                {it.title}
-              </Text>
-              <Text style={styles.rowMeta}>{amountLabel(it) ?? (it.date && !(hideToday && it.date === todayISO()) ? formatShort(it.date, it.time) : it.time ?? '')}</Text>
-              <Avatar name={it.createdBy} size={24} />
-            </View>
-          ))
-        )}
-      </View>
+      {hideRows ? null : (
+        <View style={styles.rows}>
+          {rows.length === 0 ? (
+            <Text style={styles.empty}>{empty}</Text>
+          ) : (
+            rows.map((it, i) => (
+              <View key={it.id} style={[styles.row, i > 0 && styles.rowDivider]}>
+                <View style={[styles.dot, { backgroundColor: TYPE_INFO[it.type].color }]} />
+                <Text style={styles.rowTitle} numberOfLines={1}>
+                  {it.title}
+                </Text>
+                <Text style={styles.rowMeta}>{amountLabel(it) ?? (it.date && !(hideToday && it.date === todayISO()) ? formatShort(it.date, it.time) : it.time ?? '')}</Text>
+                <Avatar name={it.createdBy} size={24} />
+              </View>
+            ))
+          )}
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -179,6 +184,21 @@ export default function HomeScreen() {
       </View>
 
       <Section
+        title="Lavori"
+        icon="construct"
+        color={TYPE_INFO.lavoro.color}
+        summary={
+          openJobs.length === 0
+            ? 'Tutto completato'
+            : `${plural(openJobs.length, 'da completare', 'da completare')}${overdue ? ` · ${plural(overdue, 'in ritardo', 'in ritardo')}` : ''}${unplanned ? ` · ${unplanned} da organizzare` : ''}`
+        }
+        href="/lavori"
+        rows={[]}
+        hideRows
+        empty=""
+      />
+
+      <Section
         title="Calendario"
         icon="calendar"
         color={TYPE_INFO.appuntamento.color}
@@ -190,15 +210,6 @@ export default function HomeScreen() {
       />
 
       <View style={styles.tiles}>
-        <Tile
-          title="Lavori"
-          icon="construct"
-          color={TYPE_INFO.lavoro.color}
-          value={String(openJobs.length)}
-          line={unplanned ? `${unplanned} da organizzare` : overdue ? `${overdue} in ritardo` : openJobs.length ? 'da completare' : 'Tutto completato'}
-          lineAccent={unplanned > 0}
-          onPress={() => router.navigate('/lavori')}
-        />
         <Tile
           title="Sopralluoghi"
           icon={typeIcon('sopralluogo')}
