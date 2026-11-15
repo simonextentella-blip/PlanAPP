@@ -25,6 +25,8 @@ function Gate() {
       <Stack.Screen name="preventivo-doc" options={{ title: '', headerBackTitle: 'Indietro' }} />
       <Stack.Screen name="clienti" options={{ title: 'Clienti', headerBackTitle: 'Indietro' }} />
       <Stack.Screen name="cliente" options={{ title: '', headerBackTitle: 'Indietro' }} />
+      <Stack.Screen name="conto" options={{ title: '', headerBackTitle: 'Indietro' }} />
+      <Stack.Screen name="conto-modifica" options={{ presentation: 'modal', title: '' }} />
       <Stack.Screen name="item" options={{ presentation: 'modal', title: '' }} />
     </Stack>
   );

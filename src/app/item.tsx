@@ -8,6 +8,7 @@ import { ClientPicker } from '../components/ClientPicker';
 import { ChainPhotos, PhotoEditor } from '../components/Photos';
 import { deletePhotos } from '../lib/photos';
 import { formatPickerDate, isValidTime, normalizeTime, todayISO } from '../lib/dates';
+import { SPESA_CATEGORIES } from '../lib/spese';
 import { useStore } from '../lib/store';
 import { colors, unscheduled } from '../lib/theme';
 import { formatEuro, parseEuro } from '../lib/money';
@@ -35,12 +36,12 @@ function newTitle(type: ItemType): string {
 }
 
 export default function ItemScreen() {
-  const params = useLocalSearchParams<{ id?: string; date?: string; type?: ItemType; nodate?: string }>();
+  const params = useLocalSearchParams<{ id?: string; date?: string; type?: ItemType; nodate?: string; account?: string; direction?: Direction; title?: string }>();
   const { getItem, addItem, updateItem, removeItem, getClient } = useStore();
   const existing = params.id ? getItem(params.id) : undefined;
 
   const [type, setType] = useState<ItemType>(existing?.type ?? params.type ?? 'sopralluogo');
-  const [title, setTitle] = useState(existing?.title ?? '');
+  const [title, setTitle] = useState(existing?.title ?? params.title ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
   const [date, setDate] = useState<string | null>(existing ? existing.date : params.date ?? (params.type === 'nota' || params.nodate ? null : todayISO()));
   const [time, setTime] = useState(existing?.time ?? '');
@@ -48,7 +49,10 @@ export default function ItemScreen() {
   const [clientId, setClientId] = useState<string | null>(existing?.clientId ?? null);
   const [amount, setAmount] = useState(existing?.amount != null ? formatEuro(existing.amount).replace('€ ', '') : '');
   const [photos, setPhotos] = useState<string[]>(existing?.photos ?? []);
-  const [direction, setDirection] = useState<Direction>(existing?.direction ?? 'entrata');
+  const [direction, setDirection] = useState<Direction>(existing?.direction ?? params.direction ?? 'entrata');
+  // Movimento del Conto lavori: entrata = saldo messo sul conto, uscita = spesa.
+  const account: string | null = type === 'soldi' ? existing?.account ?? params.account ?? null : null;
+  const isSpesa = !!account && direction === 'uscita';
   const [showCalendar, setShowCalendar] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -61,7 +65,7 @@ export default function ItemScreen() {
   function save() {
     const chosen = clientId ? getClient(clientId) : undefined;
     const t = title.trim() || (chosen ? `${TYPE_INFO[type].label} – ${chosen.name}` : '');
-    if (!t) return setError('Scrivi un titolo (o scegli un cliente).');
+    if (!t) return setError(isSpesa ? 'Scegli una categoria: Pranzo, Benzina, Materiali o Altro.' : 'Scrivi un titolo (o scegli un cliente).');
     const tm = time.trim();
     if (tm && !isValidTime(tm)) return setError('Orario non valido: usa il formato 09:30.');
     const hasAmount = WITH_AMOUNT.includes(type);
@@ -74,9 +78,10 @@ export default function ItemScreen() {
       date,
       time: tm && date ? normalizeTime(tm) : null,
       done: CHECKABLE.includes(type) ? done : false,
-      clientId: WITH_CLIENT.includes(type) ? clientId : null,
+      clientId: WITH_CLIENT.includes(type) && !isSpesa ? clientId : null,
       amount: parsed,
       direction: type === 'soldi' ? direction : null,
+      account,
       ...(type === 'sopralluogo' ? { photos } : {}),
     };
     if (type === 'sopralluogo') deletePhotos((existing?.photos ?? []).filter((p) => !photos.includes(p)));
@@ -106,7 +111,7 @@ export default function ItemScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen
         options={{
-          title: isEdit ? 'Modifica' : typeFixed ? newTitle(type) : 'Nuovo',
+          title: account ? (direction === 'uscita' ? (isEdit ? 'Modifica spesa' : 'Nuova spesa') : 'Saldo del conto') : isEdit ? 'Modifica' : typeFixed ? newTitle(type) : 'Nuovo',
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={10}>
               <Text style={styles.headerBtn}>Annulla</Text>
@@ -156,13 +161,38 @@ export default function ItemScreen() {
           </Pressable>
         ) : null}
 
-        {WITH_CLIENT.includes(type) ? (
+        {WITH_CLIENT.includes(type) && !isSpesa ? (
           <View>
             <Text style={styles.label}>Cliente</Text>
             <ClientPicker value={clientId} onChange={(c) => setClientId(c?.id ?? null)} color={color} />
           </View>
         ) : null}
 
+        {isSpesa ? (
+          <View>
+            <Text style={styles.label}>Categoria</Text>
+            <View style={styles.catGrid}>
+              {SPESA_CATEGORIES.map((c) => {
+                const on = title === c.label;
+                return (
+                  <Pressable
+                    key={c.label}
+                    onPress={() => {
+                      setTitle(c.label);
+                      setError('');
+                    }}
+                    style={({ pressed }) => [styles.catTile, on && { borderColor: color, borderWidth: 2, backgroundColor: color + '1A' }, pressed && { opacity: 0.7 }]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Ionicons name={c.icon} size={22} color={on ? color : colors.muted} />
+                    <Text style={[styles.catText, on && { color }]}>{c.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : (
         <View>
           <Text style={styles.label}>Titolo</Text>
           <TextInput
@@ -171,12 +201,13 @@ export default function ItemScreen() {
               setTitle(v);
               setError('');
             }}
-            placeholder={PLACEHOLDERS[type]}
+            placeholder={account ? (direction === 'uscita' ? 'Es. Benzina furgone, corde nuove' : 'Saldo iniziale') : PLACEHOLDERS[type]}
             placeholderTextColor={colors.muted}
             style={styles.input}
             autoFocus={!isEdit}
           />
         </View>
+        )}
 
         <View>
           <Text style={styles.label}>Giorno</Text>
@@ -228,7 +259,7 @@ export default function ItemScreen() {
           ) : null}
         </View>
 
-        {date ? (
+        {date && !isSpesa ? (
           <View>
             <Text style={styles.label}>Orario (facoltativo)</Text>
             <TextInput
@@ -247,11 +278,11 @@ export default function ItemScreen() {
         ) : null}
 
         <View>
-          <Text style={styles.label}>Note</Text>
+          <Text style={styles.label}>{isSpesa ? 'Da dove viene (facoltativo)' : 'Note'}</Text>
           <TextInput
             value={description}
             onChangeText={setDescription}
-            placeholder="Dettagli, indirizzo, materiale, telefono…"
+            placeholder={isSpesa ? 'Es. Distributore Eni Bracciano, ferramenta Rossi…' : 'Dettagli, indirizzo, materiale, telefono…'}
             placeholderTextColor={colors.muted}
             style={[styles.input, styles.multiline]}
             multiline
@@ -263,8 +294,8 @@ export default function ItemScreen() {
 
         {WITH_AMOUNT.includes(type) ? (
           <View>
-            <Text style={styles.label}>Importo</Text>
-            {type === 'soldi' ? (
+            <Text style={styles.label}>{account ? (direction === 'uscita' ? 'Quanto hai speso' : 'Saldo del conto') : 'Importo'}</Text>
+            {type === 'soldi' && !account ? (
               <View style={[styles.chips, { marginBottom: 10 }]}>
                 <Chip label="Entrata" color="#16A34A" active={direction === 'entrata'} onPress={() => setDirection('entrata')} />
                 <Chip label="Uscita" color={colors.danger} active={direction === 'uscita'} onPress={() => setDirection('uscita')} />
@@ -322,6 +353,9 @@ const styles = StyleSheet.create({
   headerBtn: { fontSize: 17, color: colors.primary, paddingHorizontal: 8 },
   label: { fontSize: 13, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   tiles: { flexDirection: 'row', gap: 10 },
+  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  catTile: { flexBasis: '47%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 14 },
+  catText: { fontSize: 16, fontWeight: '600', color: colors.text },
   tile: { flex: 1, alignItems: 'center', gap: 8, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 4 },
   tileIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   tileText: { fontSize: 14, fontWeight: '600', color: '#374151' },

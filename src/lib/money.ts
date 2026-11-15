@@ -39,3 +39,12 @@ export function totals(items: Item[]) {
   }
   return { entrate, uscite, saldo: entrate - uscite };
 }
+
+/** Movimento di un conto lavori (ha il suo saldo, separato da Soldi generale). */
+export const inWorkAccount = (it: Item) => it.type === 'soldi' && !!it.account;
+
+/** Un conto lavori: saldo messo (entrate), spese e quanto rimane. */
+export function accountTotals(items: Item[], accountId: string) {
+  const t = totals(items.filter((it) => it.type === 'soldi' && it.account === accountId));
+  return { saldo: t.entrate, spese: t.uscite, rimane: t.saldo };
+}

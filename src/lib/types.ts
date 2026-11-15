@@ -16,6 +16,11 @@ export interface Item {
   amount?: number | null;
   /** Solo per Soldi: entrata o uscita. */
   direction?: Direction | null;
+  /**
+   * Solo per Soldi: id del conto lavori a cui appartiene il movimento.
+   * Ogni conto ha il suo saldo: i suoi movimenti non entrano nei totali generali di Soldi.
+   */
+  account?: string | null;
   /** Solo per Preventivi creati con il modulo completo. */
   quote?: Quote | null;
   /** Preventivo nato da un sopralluogo fatto: id del sopralluogo. */
@@ -196,3 +201,12 @@ export function chainPhotos(item: Item, getItem: (id: string) => Item | undefine
 }
 
 export const countPhotos = (groups: PhotoGroup[]) => groups.reduce((n, g) => n + g.photos.length, 0);
+
+/** Conto lavori: un conto a parte dentro Soldi, con il suo saldo e le sue spese. */
+export interface Account {
+  id: string;
+  name: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}

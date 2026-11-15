@@ -1,8 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { loadClients, saveClients, loadSuppliers, localRepository, loadProfileName, saveSuppliers, saveProfileName, type ItemRepository } from './repository';
+import { loadAccounts, saveAccounts, loadClients, saveClients, loadSuppliers, localRepository, loadProfileName, saveSuppliers, saveProfileName, type ItemRepository } from './repository';
 import { formatEuro } from './money';
 import { deletePhotos } from './photos';
-import { blankSupplier, DEFAULT_COMPANY, personKey, type Client, type Company, type Item, type NewClient, type NewItem } from './types';
+import { blankSupplier, DEFAULT_COMPANY, personKey, type Account, type Client, type Company, type Item, type NewClient, type NewItem } from './types';
 
 interface StoreValue {
   ready: boolean;
@@ -24,6 +24,13 @@ interface StoreValue {
   addClient(data: NewClient): Client;
   updateClient(id: string, patch: Partial<NewClient>): void;
   removeClient(id: string): void;
+  /** Conti lavori dentro Soldi. */
+  accounts: Account[];
+  getAccount(id: string | null | undefined): Account | undefined;
+  addAccount(name: string): Account;
+  updateAccount(id: string, name: string): void;
+  /** Elimina il conto e tutti i suoi movimenti. */
+  removeAccount(id: string): void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -190,13 +197,23 @@ export function StoreProvider({ children, repository = localRepository }: { chil
   const [userName, setUserNameState] = useState('');
   const [suppliers, setSuppliers] = useState<Record<string, Company>>({ simone: DEFAULT_COMPANY });
   const [clients, setClients] = useState<Client[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const userRef = useRef('');
   userRef.current = userName;
 
   useEffect(() => {
-    Promise.all([repository.loadAll(), loadProfileName(), loadSuppliers(), loadClients()])
-      .then(([loaded, name, comp, cl]) => {
+    Promise.all([repository.loadAll(), loadProfileName(), loadSuppliers(), loadClients(), loadAccounts()])
+      .then(([loaded, name, comp, cl, acc]) => {
         setClients(cl);
+        // Movimenti di un conto che non esiste più nell'elenco: lo ricrea, così non si perdono.
+        const known = new Set(acc.map((a) => a.id));
+        const now = new Date().toISOString();
+        const missing = [...new Set(loaded.filter((it) => it.account && !known.has(it.account)).map((it) => it.account as string))];
+        if (missing.length) {
+          acc = [...acc, ...missing.map((id) => ({ id, name: 'Conto lavori', createdBy: name || 'Io', createdAt: now, updatedAt: now }))];
+          saveAccounts(acc).catch(() => {});
+        }
+        setAccounts(acc);
         setSuppliers(comp);
         setItems(linkVisitsToQuotes(loaded, loaded, name || 'Io'));
         setUserNameState(name);
@@ -317,6 +334,37 @@ export function StoreProvider({ children, repository = localRepository }: { chil
     [commitClients, commit],
   );
 
+  const commitAccounts = useCallback((updater: (prev: Account[]) => Account[]) => {
+    setAccounts((prev) => {
+      const next = updater(prev);
+      saveAccounts(next).catch(() => {});
+      return next;
+    });
+  }, []);
+  const addAccount = useCallback(
+    (name: string) => {
+      const now = new Date().toISOString();
+      const a: Account = { id: newId(), name, createdBy: userRef.current || 'Io', createdAt: now, updatedAt: now };
+      commitAccounts((prev) => [...prev, a]);
+      return a;
+    },
+    [commitAccounts],
+  );
+  const updateAccount = useCallback(
+    (id: string, name: string) => {
+      const now = new Date().toISOString();
+      commitAccounts((prev) => prev.map((a) => (a.id === id ? { ...a, name, updatedAt: now } : a)));
+    },
+    [commitAccounts],
+  );
+  const removeAccount = useCallback(
+    (id: string) => {
+      commitAccounts((prev) => prev.filter((a) => a.id !== id));
+      commit((prev) => prev.filter((it) => it.account !== id));
+    },
+    [commitAccounts, commit],
+  );
+
   const value = useMemo<StoreValue>(
     () => ({
       ready,
@@ -336,8 +384,13 @@ export function StoreProvider({ children, repository = localRepository }: { chil
       addClient,
       updateClient,
       removeClient,
+      accounts: [...accounts].sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)),
+      getAccount: (id) => (id ? accounts.find((a) => a.id === id) : undefined),
+      addAccount,
+      updateAccount,
+      removeAccount,
     }),
-    [ready, items, userName, setUserName, company, setCompany, supplierFor, addItem, updateItem, removeItem, toggleDone, clients, addClient, updateClient, removeClient],
+    [ready, items, userName, setUserName, company, setCompany, supplierFor, addItem, updateItem, removeItem, toggleDone, clients, addClient, updateClient, removeClient, accounts, addAccount, updateAccount, removeAccount],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

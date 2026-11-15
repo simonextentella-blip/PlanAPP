@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DEFAULT_COMPANY, type Client, type Company, type Item } from './types';
+import { DEFAULT_COMPANY, type Account, type Client, type Company, type Item } from './types';
 
 /**
  * Punto unico di accesso ai dati. Oggi salva sul telefono (AsyncStorage);
@@ -71,4 +71,19 @@ export async function loadClients(): Promise<Client[]> {
 
 export async function saveClients(c: Client[]): Promise<void> {
   await AsyncStorage.setItem(CLIENTS_KEY, JSON.stringify(c));
+}
+
+const ACCOUNTS_KEY = 'planapp.accounts.v1';
+
+export async function loadAccounts(): Promise<Account[]> {
+  try {
+    const raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveAccounts(a: Account[]): Promise<void> {
+  await AsyncStorage.setItem(ACCOUNTS_KEY, JSON.stringify(a));
 }
