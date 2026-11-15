@@ -1,16 +1,21 @@
 import '../lib/calendarLocale';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Login } from '../components/Login';
 import { AuthProvider, useAuth } from '../lib/auth';
+import { refreshPush } from '../lib/push';
 import { StoreProvider, useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 
 function Gate() {
-  const { ready } = useStore();
+  const { ready, userName } = useStore();
   const auth = useAuth();
+  useEffect(() => {
+    if (ready && auth.session) refreshPush(auth.email, userName);
+  }, [ready, auth.session, auth.email, userName]);
   if (!ready || auth.loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>

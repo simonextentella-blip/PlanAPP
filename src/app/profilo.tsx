@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '../lib/auth';
+import { disablePush, enablePush, pushState, testPush, type PushState } from '../lib/push';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 import { ITEM_TYPES, TYPE_INFO } from '../lib/types';
@@ -18,6 +19,31 @@ export default function ProfileScreen() {
           : sync.status === 'ok'
             ? `Tutto sincronizzato${sync.lastSync ? ` · ore ${hhmm(sync.lastSync)}` : ''}`
             : 'Non collegato';
+  const [push, setPush] = useState<PushState | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState('');
+  useEffect(() => {
+    pushState().then(setPush).catch(() => setPush('unsupported'));
+  }, []);
+  const pushDo = async (what: 'on' | 'off' | 'test') => {
+    setPushBusy(true);
+    setPushMsg('');
+    try {
+      if (what === 'on') {
+        const err = await enablePush(email, userName);
+        setPushMsg(err ?? 'Fatto! Ti ho mandato una notifica di prova.');
+        if (!err) await testPush();
+      } else if (what === 'off') {
+        await disablePush();
+        setPushMsg('Notifiche disattivate su questo telefono.');
+      } else {
+        setPushMsg((await testPush()) ?? 'Prova mandata: tra qualche secondo dovrebbe arrivare.');
+      }
+      setPush(await pushState());
+    } finally {
+      setPushBusy(false);
+    }
+  };
   const [draft, setDraft] = useState(userName);
   const [comp, setComp] = useState(company);
   // Cambiando nome si caricano i dati fornitore di quella persona.
@@ -100,6 +126,45 @@ export default function ProfileScreen() {
           </>
         )}
       </View>
+      {configured && push && push !== 'unsupported' ? (
+        <View style={styles.card}>
+          <Text style={styles.label}>Notifiche sopralluoghi</Text>
+          {push === 'install' ? (
+            <Text style={styles.hint}>
+              Su iPhone le notifiche arrivano solo se apri PlanApp dall’icona sulla schermata Home. In Safari tocca Condividi → “Aggiungi alla schermata Home”, poi apri l’app da lì e torna qui.
+            </Text>
+          ) : push === 'denied' ? (
+            <Text style={styles.hint}>
+              Le notifiche sono bloccate per PlanApp. Su iPhone: Impostazioni → Notifiche → PlanApp → Consenti notifiche. Poi torna qui.
+            </Text>
+          ) : (
+            <>
+              <View style={styles.row}>
+                <View style={[styles.dot, { backgroundColor: push === 'on' ? '#16A34A' : '#9CA3AF' }]} />
+                <Text style={styles.rowText}>{push === 'on' ? 'Attive su questo telefono' : 'Non attive su questo telefono'}</Text>
+              </View>
+              <Text style={styles.hint}>Ogni mattina alle 7 ti arriva un avviso con i sopralluoghi del giorno (solo se ce ne sono). Arriva a tutti e due.</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                {push === 'on' ? (
+                  <>
+                    <Pressable disabled={pushBusy} onPress={() => pushDo('test')} style={({ pressed }) => [styles.btn, (pressed || pushBusy) && { opacity: 0.7 }]} accessibilityRole="button">
+                      <Text style={styles.btnText}>Prova</Text>
+                    </Pressable>
+                    <Pressable disabled={pushBusy} onPress={() => pushDo('off')} style={({ pressed }) => [styles.btn, styles.btnOut, (pressed || pushBusy) && { opacity: 0.7 }]} accessibilityRole="button">
+                      <Text style={[styles.btnText, { color: colors.danger }]}>Disattiva</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <Pressable disabled={pushBusy} onPress={() => pushDo('on')} style={({ pressed }) => [styles.btn, (pressed || pushBusy) && { opacity: 0.7 }]} accessibilityRole="button">
+                    <Text style={styles.btnText}>{pushBusy ? 'Attendi…' : 'Attiva notifiche'}</Text>
+                  </Pressable>
+                )}
+              </View>
+            </>
+          )}
+          {pushMsg ? <Text style={[styles.hint, { color: colors.text }]}>{pushMsg}</Text> : null}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
