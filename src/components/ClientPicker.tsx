@@ -77,9 +77,10 @@ export function ClientPicker({ value, onChange, color = colors.primary }: { valu
               <Text style={[styles.close, { color }]}>Chiudi</Text>
             </Pressable>
           </View>
+          {/* Niente tastiera aperta in automatico: sul telefono spingeva giù l'elenco e i clienti non si vedevano. */}
           <View style={styles.search}>
             <Ionicons name="search" size={18} color={colors.muted} />
-            <TextInput value={query} onChangeText={setQuery} placeholder="Cerca o scrivi un nuovo nome…" placeholderTextColor={colors.muted} style={styles.searchInput} autoFocus />
+            <TextInput value={query} onChangeText={setQuery} placeholder="Cerca o scrivi un nuovo nome…" placeholderTextColor={colors.muted} style={styles.searchInput} />
           </View>
           {CAN_IMPORT_CONTACTS && !q ? (
             <Pressable onPress={importFromContacts} style={styles.newRow}>
