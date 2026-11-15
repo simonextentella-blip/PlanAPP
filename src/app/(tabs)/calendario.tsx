@@ -8,7 +8,11 @@ import { ItemCard } from '../../components/ItemCard';
 import { formatRelative, todayISO } from '../../lib/dates';
 import { useStore } from '../../lib/store';
 import { colors } from '../../lib/theme';
-import { inCalendar, ITEM_TYPES, TYPE_INFO, type ItemType } from '../../lib/types';
+import { TYPE_INFO, type ItemType } from '../../lib/types';
+
+/** Nel calendario si vedono solo sopralluoghi e lavori. */
+const CALENDAR_TYPES: ItemType[] = ['sopralluogo', 'lavoro'];
+const inCalendar = (it: { type: ItemType }) => CALENDAR_TYPES.includes(it.type);
 
 export default function CalendarScreen() {
   const { items } = useStore();
@@ -49,7 +53,7 @@ export default function CalendarScreen() {
               style={styles.calendar}
             />
             <View style={styles.legend}>
-              {ITEM_TYPES.filter((type) => inCalendar({ type })).map((type) => TYPE_INFO[type]).map((t) => (
+              {CALENDAR_TYPES.map((type) => TYPE_INFO[type]).map((t) => (
                 <View key={t.label} style={styles.legendItem}>
                   <View style={[styles.dot, { backgroundColor: t.color }]} />
                   <Text style={styles.legendText}>{t.plural}</Text>
@@ -59,7 +63,7 @@ export default function CalendarScreen() {
             <Text style={styles.dayTitle}>{formatRelative(selected)}</Text>
           </>
         }
-        ListEmptyComponent={<EmptyState text="Niente in programma per questo giorno. Tocca + per aggiungere un appuntamento, un lavoro o una nota." />}
+        ListEmptyComponent={<EmptyState text="Niente in programma per questo giorno. Tocca + per aggiungere un sopralluogo o un lavoro." />}
         contentContainerStyle={{ paddingBottom: 100 }}
       />
       <Fab label="Aggiungi" onPress={() => router.push({ pathname: '/item', params: { date: selected } })} />
