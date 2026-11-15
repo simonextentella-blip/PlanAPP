@@ -21,6 +21,14 @@ const PLACEHOLDERS: Record<ItemType, string> = {
   preventivo: 'Es. Preventivo bagno Verdi',
 };
 
+/** Titolo della schermata quando il tipo è già deciso, es. "Nuovo sopralluogo". */
+function newTitle(type: ItemType): string {
+  if (type === 'nota') return 'Nuova nota';
+  if (type === 'todo') return 'Nuova cosa da fare';
+  if (type === 'soldi') return 'Nuovo movimento';
+  return `Nuovo ${TYPE_INFO[type].label.toLowerCase()}`;
+}
+
 export default function ItemScreen() {
   const params = useLocalSearchParams<{ id?: string; date?: string; type?: ItemType; nodate?: string }>();
   const { getItem, addItem, updateItem, removeItem, getClient } = useStore();
@@ -41,6 +49,8 @@ export default function ItemScreen() {
 
   const isEdit = !!existing;
   const color = TYPE_INFO[type].color;
+  // La scelta del tipo serve solo quando si crea dal + generale: dentro una sezione il tipo è già deciso.
+  const typeFixed = isEdit || !!params.type;
 
   function save() {
     const chosen = clientId ? getClient(clientId) : undefined;
@@ -88,7 +98,7 @@ export default function ItemScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen
         options={{
-          title: isEdit ? 'Modifica' : 'Nuovo',
+          title: isEdit ? 'Modifica' : typeFixed ? newTitle(type) : 'Nuovo',
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={10}>
               <Text style={styles.headerBtn}>Annulla</Text>
@@ -102,6 +112,7 @@ export default function ItemScreen() {
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, gap: 18, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+        {typeFixed ? null : (
         <View>
           <Text style={styles.label}>Tipo</Text>
           <View style={styles.chips}>
@@ -110,6 +121,7 @@ export default function ItemScreen() {
             ))}
           </View>
         </View>
+        )}
 
         {type === 'preventivo' && !isEdit ? (
           <Pressable onPress={() => router.replace('/preventivo')} style={[styles.banner, { borderColor: color }]}>
