@@ -5,7 +5,7 @@ import { formatEuro } from './money';
 import { useAuth } from './auth';
 import { deletePhotos, uploadLocalPhoto } from './photos';
 import { isCloudRef } from './cloudPhotos';
-import { flush, loadPending, mergeList, mergeMap, onPendingChange, pendingCount, pullAll, queueListDiff, queueMapDiff, subscribe, type RemoteRecord } from './sync';
+import { flush, isPending, loadPending, mergeList, mergeMap, onPendingChange, pendingCount, pullAll, queue, queueListDiff, queueMapDiff, subscribe, type RemoteRecord } from './sync';
 import { blankSupplier, DEFAULT_COMPANY, personKey, type Account, type Client, type Company, type Item, type NewClient, type NewItem } from './types';
 
 interface StoreValue {
@@ -206,6 +206,12 @@ export function linkJobsToMoney(prev: Item[], next: Item[], author: string): Ite
   return out;
 }
 
+/** Nome preso dall'email: la parte prima della @, fino al primo punto (es. "simone.tentella@…" → "Simone"). */
+export function emailName(email: string): string {
+  const n = (email.split('@')[0] ?? '').split(/[._-]/)[0] ?? '';
+  return n ? n[0].toUpperCase() + n.slice(1) : '';
+}
+
 /** Ordina per data, poi orario (senza orario prima), poi data di creazione. */
 export function compareItems(a: Item, b: Item): number {
   const da = a.date ?? '9999-99-99';
@@ -226,9 +232,15 @@ export function StoreProvider({ children, repository = localRepository }: { chil
   const [accounts, setAccounts] = useState<Account[]>([]);
   const userRef = useRef('');
   userRef.current = userName;
+  /** Nome scritto davvero (salvato sul telefono), non quello preso dall'email. */
+  const savedNameRef = useRef('');
   const itemsRef = useRef<Item[]>([]);
   itemsRef.current = items;
   const { session } = useAuth();
+  /** Il nome di ognuno è salvato su Supabase (raccolta "profiles"), una riga per email. */
+  const profileKey = session?.user.email?.trim().toLowerCase() ?? '';
+  const profileKeyRef = useRef('');
+  profileKeyRef.current = profileKey;
   const [sync, setSync] = useState<SyncState>({ status: 'off', pending: 0, lastSync: null });
 
   useEffect(() => {
@@ -249,6 +261,7 @@ export function StoreProvider({ children, repository = localRepository }: { chil
         const linked = linkVisitsToQuotes(loaded, loaded, name || 'Io');
         if (linked !== loaded) queueListDiff('items', loaded, linked);
         setItems(linked);
+        savedNameRef.current = name;
         setUserNameState(name);
       })
       .catch(() => {
@@ -270,8 +283,12 @@ export function StoreProvider({ children, repository = localRepository }: { chil
   );
 
   const setUserName = useCallback((name: string) => {
-    setUserNameState(name);
-    saveProfileName(name).catch(() => {});
+    const n = name.trim() || emailName(profileKeyRef.current);
+    setUserNameState(n);
+    if (!name.trim()) return;
+    savedNameRef.current = n;
+    saveProfileName(n).catch(() => {});
+    if (profileKeyRef.current && n) queue('profiles', profileKeyRef.current, { name: n });
   }, []);
 
   const supplierFor = useCallback(
@@ -426,6 +443,20 @@ export function StoreProvider({ children, repository = localRepository }: { chil
         if (next !== prev) saveSuppliers(next).catch(() => {});
         return next;
       });
+      // Il mio nome scritto su un altro telefono (o da un accesso precedente).
+      const key = profileKeyRef.current;
+      if (key && !isPending('profiles', key)) {
+        const mine = recs.find((r) => r.collection === 'profiles' && r.id === key);
+        const name = (mine?.data as { name?: string } | null | undefined)?.name?.trim();
+        if (name && name !== savedNameRef.current) {
+          savedNameRef.current = name;
+          setUserNameState(name);
+          saveProfileName(name).catch(() => {});
+        } else if (full && !name && savedNameRef.current) {
+          // Nome scritto solo su questo telefono: lo carica online.
+          queue('profiles', key, { name: savedNameRef.current });
+        }
+      }
     },
     [repository],
   );
@@ -475,15 +506,9 @@ export function StoreProvider({ children, repository = localRepository }: { chil
       setSync({ status: 'off', pending: pendingCount(), lastSync: null });
       return;
     }
-    // Nome non ancora scritto: usa la prima parte dell'email (es. "simone").
-    if (!userRef.current && session?.user.email) {
-      const n = session.user.email.split('@')[0].split(/[._-]/)[0];
-      if (n) {
-        const name = n[0].toUpperCase() + n.slice(1);
-        setUserNameState(name);
-        saveProfileName(name).catch(() => {});
-      }
-    }
+    // Nome non ancora scritto: per ora usa la parte dell'email prima della @ (es. "Simone").
+    // Non viene salvato: se il nome è già online, arriva con la sincronizzazione.
+    if (!userRef.current && profileKey) setUserNameState(emailName(profileKey));
     fullSync();
     const unsub = subscribe((r) => applyRemote([r], false), () => fullSync());
     const offPending = onPendingChange(() => setSync((s) => ({ ...s, pending: pendingCount() })));
