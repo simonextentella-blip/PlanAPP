@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import { capitalize, formatDayMonth, formatShort, todayISO } from '../../lib/dates';
-import { amountLabel, formatEuro, inWorkAccount, totals } from '../../lib/money';
+import { amountLabel, formatEuro, inWorkAccount, isToCollect, totals } from '../../lib/money';
 import { useStore } from '../../lib/store';
 import { colors, unscheduled as UNSCHEDULED } from '../../lib/theme';
 import { inCalendar, TYPE_INFO, type Item, type ItemType } from '../../lib/types';
@@ -153,6 +153,7 @@ export default function HomeScreen() {
   const pendingQuotes = items.filter((it) => it.type === 'preventivo' && !it.done);
   const month = today.slice(0, 7);
   const money = totals(items.filter((it) => it.type === 'soldi' && !inWorkAccount(it) && it.date?.startsWith(month)));
+  const toCollect = items.filter((it) => isToCollect(it) && !inWorkAccount(it)).reduce((n, it) => n + (it.amount ?? 0), 0);
   const visitsToAgree = openVisits.filter((it) => !it.date).length;
   const monthName = formatDayMonth(today).split(' ').pop();
   const latestNotes = [...notes].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)).slice(0, 3);
@@ -225,7 +226,7 @@ export default function HomeScreen() {
           icon={typeIcon('soldi')}
           color={TYPE_INFO.soldi.color}
           value={compactEuro(money.saldo)}
-          line={`saldo di ${monthName}`}
+          line={`saldo di ${monthName}${toCollect ? ` · ${compactEuro(toCollect)} da prendere` : ''}`}
           onPress={() => openCategory('soldi')}
         />
         <Tile

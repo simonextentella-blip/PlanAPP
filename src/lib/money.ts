@@ -33,7 +33,7 @@ export function totals(items: Item[]) {
   let entrate = 0;
   let uscite = 0;
   for (const it of items) {
-    if (it.type !== 'soldi' || it.amount == null) continue;
+    if (it.type !== 'soldi' || it.amount == null || it.unpaid) continue;
     if (it.direction === 'uscita') uscite += it.amount;
     else entrate += it.amount;
   }
@@ -48,3 +48,6 @@ export function accountTotals(items: Item[], accountId: string) {
   const t = totals(items.filter((it) => it.type === 'soldi' && it.account === accountId));
   return { saldo: t.entrate, spese: t.uscite, rimane: t.saldo };
 }
+
+/** Entrata ancora da incassare: sta in "Da prendere" e non conta nei saldi. */
+export const isToCollect = (it: Item) => it.type === 'soldi' && !!it.unpaid;

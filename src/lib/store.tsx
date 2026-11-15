@@ -143,8 +143,11 @@ export function linkQuotesToJobs(prev: Item[], next: Item[], author: string): It
 /**
  * Quando un lavoro viene segnato come fatto, crea l'entrata in Soldi con il suo importo.
  * Se la spunta viene tolta, l'entrata collegata viene eliminata.
+ * Se il lavoro è "non ancora pagato", l'entrata resta in Soldi › Da prendere (fuori dal saldo) finché non viene pagato.
  */
 export function linkJobsToMoney(prev: Item[], next: Item[], author: string): Item[] {
+  const now = new Date().toISOString();
+  const today = now.slice(0, 10);
   const before = new Map(prev.map((it) => [it.id, it]));
   // Importo del lavoro: il suo, oppure quello del preventivo da cui nasce.
   const jobAmount = (job: Item): number | null => {
@@ -158,12 +161,18 @@ export function linkJobsToMoney(prev: Item[], next: Item[], author: string): Ite
     .filter((it) => !(it.jobId && !doneJobs.has(it.jobId)))
     // Entrate rimaste senza importo: lo completa appena il lavoro (o il suo preventivo) ce l'ha.
     .map((it) => {
-      if (!it.jobId || it.amount != null) return it;
-      const a = jobAmount(jobs.get(it.jobId)!);
-      return a == null ? it : { ...it, amount: a };
+      if (!it.jobId) return it;
+      const job = jobs.get(it.jobId)!;
+      let out = it;
+      if (it.amount == null) {
+        const a = jobAmount(job);
+        if (a != null) out = { ...out, amount: a };
+      }
+      // Pagato / non ancora pagato segue il lavoro. Quando viene pagato, l'incasso prende la data di oggi.
+      const unpaid = !!job.unpaid;
+      if (!!it.unpaid !== unpaid) out = { ...out, unpaid, updatedAt: now, ...(unpaid ? {} : { date: today }) };
+      return out;
     });
-  const now = new Date().toISOString();
-  const today = now.slice(0, 10);
   for (const job of next) {
     if (job.type !== 'lavoro' || !job.done || before.get(job.id)?.done) continue;
     if (out.some((it) => it.jobId === job.id)) continue;
@@ -186,6 +195,7 @@ export function linkJobsToMoney(prev: Item[], next: Item[], author: string): Ite
         direction: 'entrata',
         quote: null,
         jobId: job.id,
+        unpaid: !!job.unpaid,
         clientId: job.clientId ?? null,
         createdBy: author,
         createdAt: now,
