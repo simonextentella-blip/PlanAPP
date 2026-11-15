@@ -7,7 +7,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { Fab } from '../../components/Fab';
 import { ItemCard } from '../../components/ItemCard';
 import { MONTH_NAMES, todayISO } from '../../lib/dates';
-import { formatEuro, inWorkAccount, totals, workAccountTotals } from '../../lib/money';
+import { accountTotals, formatEuro, inWorkAccount, totals } from '../../lib/money';
 import { useStore } from '../../lib/store';
 import { colors } from '../../lib/theme';
 import { doneLabel, ITEM_TYPES, TYPE_INFO, type ItemType } from '../../lib/types';
@@ -28,14 +28,14 @@ export default function CategoryRoute() {
 
 function CategoryScreen({ type }: { type: ItemType }) {
   const info = TYPE_INFO[type];
-  const { items } = useStore();
+  const { items, accounts } = useStore();
   const [month, setMonth] = useState(todayISO().slice(0, 7));
   const [showDone, setShowDone] = useState(false);
   const isQuote = type === 'preventivo';
   const [quoteFilter, setQuoteFilter] = useState<'dafare' | 'attesa' | 'accettati'>('dafare');
 
   const isMoney = type === 'soldi';
-  // Soldi ha due viste: Generale e Conto lavori (conto a parte con il suo saldo).
+  // Soldi ha due viste: Generale e Conti lavori (conti a parte, ognuno con il suo saldo).
   const [moneyView, setMoneyView] = useState<'generale' | 'lavori'>('generale');
   const isWorkAccount = isMoney && moneyView === 'lavori';
 
@@ -44,7 +44,6 @@ function CategoryScreen({ type }: { type: ItemType }) {
       items.filter((it) => {
         if (it.type !== type) return false;
         if (isMoney) {
-          if (isWorkAccount) return inWorkAccount(it);
           if (inWorkAccount(it)) return false;
           return it.date == null || it.date.startsWith(month);
         }
@@ -63,13 +62,6 @@ function CategoryScreen({ type }: { type: ItemType }) {
   const openQuotes = items.filter((it) => it.type === 'preventivo' && !it.done);
   const quoteCount = { toDo: openQuotes.filter((it) => !it.quote && it.visitId).length, pending: openQuotes.filter((it) => it.quote || !it.visitId).length };
   const t = totals(list);
-  const acc = workAccountTotals(items);
-  const accountItems = items.filter(inWorkAccount);
-  const balanceItem = accountItems.find((it) => it.direction === 'entrata');
-  function openBalance() {
-    if (balanceItem) router.push({ pathname: '/item', params: { id: balanceItem.id } });
-    else router.push({ pathname: '/item', params: { type: 'soldi', account: 'lavori', direction: 'entrata', title: 'Saldo iniziale' } });
-  }
   const quoteTotal = list.reduce((s, it) => s + (it.amount ?? 0), 0);
   const [y, m] = month.split('-').map(Number);
 
@@ -83,24 +75,14 @@ function CategoryScreen({ type }: { type: ItemType }) {
               const on = moneyView === v;
               return (
                 <Pressable key={v} onPress={() => setMoneyView(v)} style={[styles.segBtn, on && styles.segActive]} accessibilityRole="tab" accessibilityState={{ selected: on }}>
-                  <Text style={[styles.segText, on && styles.segTextActive]}>{v === 'generale' ? 'Generale' : 'Conto lavori'}</Text>
+                  <Text style={[styles.segText, on && styles.segTextActive]}>{v === 'generale' ? 'Generale' : `Conti lavori${accounts.length ? ` (${accounts.length})` : ''}`}</Text>
                 </Pressable>
               );
             })}
           </View>
         ) : null}
         {isWorkAccount ? (
-          <>
-            <View style={styles.stats}>
-              <Stat label="Saldo" value={formatEuro(acc.saldo)} color={colors.text} />
-              <Stat label="Spese" value={formatEuro(acc.spese)} color={colors.danger} />
-              <Stat label="Rimane" value={formatEuro(acc.rimane)} color={acc.rimane < 0 ? colors.danger : '#16A34A'} />
-            </View>
-            <Pressable onPress={openBalance} style={({ pressed }) => [styles.balanceBtn, pressed && { opacity: 0.7 }]} accessibilityRole="button">
-              <Ionicons name={balanceItem ? 'create-outline' : 'wallet-outline'} size={18} color={colors.primary} />
-              <Text style={styles.balanceText}>{balanceItem ? 'Modifica saldo' : 'Imposta il saldo del conto'}</Text>
-            </Pressable>
-          </>
+          <Text style={styles.summary}>Ogni conto ha il suo saldo: le spese scalano solo da lì, non dai totali di Generale.</Text>
         ) : isMoney ? (
           <>
             <View style={styles.monthRow}>
@@ -144,14 +126,42 @@ function CategoryScreen({ type }: { type: ItemType }) {
           </>
         )}
       </View>
+      {isWorkAccount ? (
+        <FlatList
+          data={accounts}
+          keyExtractor={(a) => a.id}
+          renderItem={({ item: a }) => {
+            const t = accountTotals(items, a.id);
+            return (
+              <Pressable onPress={() => router.push({ pathname: '/conto', params: { id: a.id } })} style={({ pressed }) => [styles.accCard, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+                <View style={styles.accIcon}>
+                  <Ionicons name="wallet-outline" size={22} color={info.color} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.accName} numberOfLines={1}>{a.name}</Text>
+                  <Text style={styles.accSub}>Saldo {formatEuro(t.saldo)}</Text>
+                  <Text style={styles.accSub}>Spese {formatEuro(t.spese)}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.accLabel}>RIMANE</Text>
+                  <Text style={[styles.accValue, { color: t.rimane < 0 ? colors.danger : '#16A34A' }]}>{formatEuro(t.rimane)}</Text>
+                </View>
+              </Pressable>
+            );
+          }}
+          ListEmptyComponent={<EmptyState text="Nessun conto. Tocca + per aprire il primo: gli dai un nome e un saldo, poi ci aggiungi le spese." />}
+          contentContainerStyle={{ paddingTop: 6, paddingBottom: 100 }}
+        />
+      ) : (
       <FlatList
         data={list}
         keyExtractor={(it) => it.id}
         renderItem={({ item }) => <ItemCard item={item} showDate />}
-        ListEmptyComponent={<EmptyState text={isWorkAccount ? 'Il Conto lavori ha un saldo tutto suo. Imposta il saldo, poi tocca + per aggiungere le spese: scalano solo da qui, non dai totali di Soldi.' : isQuote && quoteFilter === 'dafare' ? 'Nessun preventivo da preparare. Quando segni un sopralluogo come fatto, il preventivo da preparare compare qui.' : `Niente qui. Tocca + per aggiungere: ${info.label.toLowerCase()}.`} />}
+        ListEmptyComponent={<EmptyState text={isQuote && quoteFilter === 'dafare' ? 'Nessun preventivo da preparare. Quando segni un sopralluogo come fatto, il preventivo da preparare compare qui.' : `Niente qui. Tocca + per aggiungere: ${info.label.toLowerCase()}.`} />}
         contentContainerStyle={{ paddingTop: 6, paddingBottom: 100 }}
       />
-      <Fab label={isWorkAccount ? 'Nuova spesa' : `Nuovo: ${info.label}`} onPress={() => (isWorkAccount ? router.push({ pathname: '/item', params: { type: 'soldi', account: 'lavori', direction: 'uscita' } }) : type === 'preventivo' ? router.push('/preventivo') : router.push({ pathname: '/item', params: { type } }))} />
+      )}
+      <Fab label={isWorkAccount ? 'Nuovo conto' : `Nuovo: ${info.label}`} onPress={() => (isWorkAccount ? router.push('/conto-modifica') : type === 'preventivo' ? router.push('/preventivo') : router.push({ pathname: '/item', params: { type } }))} />
     </View>
   );
 }
@@ -183,6 +193,12 @@ const styles = StyleSheet.create({
   segActive: { backgroundColor: colors.card, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   segText: { fontSize: 14, fontWeight: '600', color: '#4B5563' },
   segTextActive: { color: colors.primary },
+  accCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, marginHorizontal: 16, marginVertical: 5, padding: 14, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  accIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E6F2F0' },
+  accName: { fontSize: 16, fontWeight: '700', color: colors.text },
+  accSub: { fontSize: 13, color: colors.muted, marginTop: 2 },
+  accLabel: { fontSize: 11, fontWeight: '600', color: colors.muted, letterSpacing: 0.4 },
+  accValue: { fontSize: 16, fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'] },
   balanceBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: colors.border },
   balanceText: { fontSize: 15, fontWeight: '600', color: colors.primary },
 });

@@ -2,8 +2,6 @@ export type ItemType = 'appuntamento' | 'lavoro' | 'todo' | 'nota' | 'sopralluog
 
 export type Direction = 'entrata' | 'uscita';
 
-export type MoneyAccount = 'lavori';
-
 export interface Item {
   id: string;
   type: ItemType;
@@ -19,10 +17,10 @@ export interface Item {
   /** Solo per Soldi: entrata o uscita. */
   direction?: Direction | null;
   /**
-   * Solo per Soldi: conto a parte a cui appartiene il movimento.
-   * 'lavori' = Conto lavori, con il suo saldo: non entra nei totali generali di Soldi.
+   * Solo per Soldi: id del conto lavori a cui appartiene il movimento.
+   * Ogni conto ha il suo saldo: i suoi movimenti non entrano nei totali generali di Soldi.
    */
-  account?: MoneyAccount | null;
+  account?: string | null;
   /** Solo per Preventivi creati con il modulo completo. */
   quote?: Quote | null;
   /** Preventivo nato da un sopralluogo fatto: id del sopralluogo. */
@@ -203,3 +201,12 @@ export function chainPhotos(item: Item, getItem: (id: string) => Item | undefine
 }
 
 export const countPhotos = (groups: PhotoGroup[]) => groups.reduce((n, g) => n + g.photos.length, 0);
+
+/** Conto lavori: un conto a parte dentro Soldi, con il suo saldo e le sue spese. */
+export interface Account {
+  id: string;
+  name: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
