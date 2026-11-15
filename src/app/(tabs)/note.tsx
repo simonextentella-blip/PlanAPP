@@ -54,7 +54,7 @@ export default function AllNotesScreen() {
       <SectionList
         sections={sections.list}
         keyExtractor={(it) => it.id}
-        renderItem={({ item }) => <ItemCard item={item} />}
+        renderItem={({ item }) => <ItemCard item={item} hideType />}
         renderSectionHeader={({ section }) => <Text style={styles.section}>{section.title}</Text>}
         ListEmptyComponent={<EmptyState text={sections.total === 0 ? 'Nessuna nota. Tocca + per appuntare qualcosa.' : 'Nessuna nota trovata.'} />}
         contentContainerStyle={{ paddingBottom: 100 }}
