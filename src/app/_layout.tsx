@@ -3,18 +3,22 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Login } from '../components/Login';
+import { AuthProvider, useAuth } from '../lib/auth';
 import { StoreProvider, useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 
 function Gate() {
   const { ready } = useStore();
-  if (!ready) {
+  const auth = useAuth();
+  if (!ready || auth.loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
         <ActivityIndicator />
       </View>
     );
   }
+  if (auth.configured && !auth.session) return <Login />;
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -35,10 +39,12 @@ function Gate() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <StoreProvider>
-        <StatusBar style="dark" />
-        <Gate />
-      </StoreProvider>
+      <AuthProvider>
+        <StoreProvider>
+          <StatusBar style="dark" />
+          <Gate />
+        </StoreProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

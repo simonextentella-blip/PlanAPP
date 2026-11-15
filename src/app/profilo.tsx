@@ -1,11 +1,23 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useAuth } from '../lib/auth';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 import { ITEM_TYPES, TYPE_INFO } from '../lib/types';
 
 export default function ProfileScreen() {
-  const { userName, setUserName, items, company, setCompany } = useStore();
+  const { userName, setUserName, items, company, setCompany, sync, syncNow } = useStore();
+  const { configured, email, signOut } = useAuth();
+  const syncText =
+    sync.status === 'syncing'
+      ? 'Sincronizzazione in corso…'
+      : sync.pending > 0
+        ? `${sync.pending} ${sync.pending === 1 ? 'modifica' : 'modifiche'} in attesa di connessione`
+        : sync.status === 'offline'
+          ? 'Nessuna connessione: riprovo da solo'
+          : sync.status === 'ok'
+            ? `Tutto sincronizzato${sync.lastSync ? ` · ore ${hhmm(sync.lastSync)}` : ''}`
+            : 'Non collegato';
   const [draft, setDraft] = useState(userName);
   const [comp, setComp] = useState(company);
   // Cambiando nome si caricano i dati fornitore di quella persona.
@@ -68,14 +80,36 @@ export default function ProfileScreen() {
 
       <View style={styles.card}>
         <Text style={styles.label}>Condivisione con il team</Text>
-        <Text style={styles.hint}>
-          Per ora i dati sono salvati solo su questo telefono. Il prossimo passo è collegare l’app a Supabase: a quel punto tu e il tuo collega
-          entrerete con il vostro account e vedrete gli stessi dati, aggiornati in tempo reale.
-        </Text>
+        {!configured ? (
+          <Text style={styles.hint}>Per ora i dati sono salvati solo su questo telefono. Appena colleghiamo Supabase tu e il collega vedrete gli stessi dati.</Text>
+        ) : (
+          <>
+            <View style={styles.row}>
+              <View style={[styles.dot, { backgroundColor: SYNC_COLOR[sync.status] }]} />
+              <Text style={styles.rowText}>{syncText}</Text>
+            </View>
+            <Text style={styles.hint}>Accesso come {email}. Le modifiche arrivano al collega in tempo reale; senza campo restano sul telefono e partono appena torna la connessione.</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+              <Pressable onPress={syncNow} style={({ pressed }) => [styles.btn, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+                <Text style={styles.btnText}>Aggiorna ora</Text>
+              </Pressable>
+              <Pressable onPress={signOut} style={({ pressed }) => [styles.btn, styles.btnOut, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+                <Text style={[styles.btnText, { color: colors.danger }]}>Esci</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </View>
     </ScrollView>
   );
 }
+
+const hhmm = (iso: string) => {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+const SYNC_COLOR = { off: '#9CA3AF', syncing: '#CA8A04', ok: '#16A34A', offline: '#DC2626' } as const;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
@@ -87,4 +121,7 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
   rowText: { flex: 1, fontSize: 16, color: colors.text },
   count: { fontSize: 16, fontWeight: '600', color: colors.text },
+  btn: { flex: 1, borderRadius: 10, paddingVertical: 11, alignItems: 'center', backgroundColor: colors.primary },
+  btnOut: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
