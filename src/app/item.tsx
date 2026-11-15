@@ -8,6 +8,7 @@ import { ClientPicker } from '../components/ClientPicker';
 import { ChainPhotos, PhotoEditor } from '../components/Photos';
 import { deletePhotos } from '../lib/photos';
 import { formatPickerDate, isValidTime, normalizeTime, todayISO } from '../lib/dates';
+import { SPESA_CATEGORIES } from '../lib/spese';
 import { useStore } from '../lib/store';
 import { colors, unscheduled } from '../lib/theme';
 import { formatEuro, parseEuro } from '../lib/money';
@@ -22,14 +23,6 @@ const PLACEHOLDERS: Record<ItemType, string> = {
   soldi: 'Es. Acconto cliente Bianchi',
   preventivo: 'Es. Preventivo bagno Verdi',
 };
-
-/** Categorie pronte per le spese dei conti lavori: prendono il posto del titolo. */
-const SPESA_CATEGORIES: { label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { label: 'Pranzo', icon: 'restaurant-outline' },
-  { label: 'Benzina', icon: 'car-outline' },
-  { label: 'Materiali', icon: 'hammer-outline' },
-  { label: 'Altro', icon: 'ellipsis-horizontal' },
-];
 
 /** Tipi che si scelgono dal + generale; gli altri si creano dalla loro sezione. */
 const QUICK_TYPES: ItemType[] = ['sopralluogo', 'lavoro', 'preventivo'];
