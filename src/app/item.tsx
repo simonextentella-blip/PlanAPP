@@ -5,9 +5,9 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Swit
 import { Calendar } from 'react-native-calendars';
 import { Chip } from '../components/Chip';
 import { ClientPicker } from '../components/ClientPicker';
-import { addDays, formatRelative, isValidTime, normalizeTime, todayISO } from '../lib/dates';
+import { formatPickerDate, isValidTime, normalizeTime, todayISO } from '../lib/dates';
 import { useStore } from '../lib/store';
-import { colors } from '../lib/theme';
+import { colors, unscheduled } from '../lib/theme';
 import { formatEuro, parseEuro } from '../lib/money';
 import { CHECKABLE, doneLabel, ITEM_TYPES, TYPE_INFO, WITH_AMOUNT, type Direction, type ItemType, WITH_CLIENT } from '../lib/types';
 
@@ -143,39 +143,51 @@ export default function ItemScreen() {
 
         <View>
           <Text style={styles.label}>Giorno</Text>
-          {date ? (
-            <View style={styles.dateRow}>
-              <Pressable onPress={() => setDate(addDays(date, -1))} hitSlop={8} accessibilityLabel="Giorno precedente">
-                <Ionicons name="chevron-back" size={24} color={color} />
-              </Pressable>
-              <Pressable onPress={() => setShowCalendar((s) => !s)} style={{ flex: 1 }}>
-                <Text style={styles.dateText}>{formatRelative(date)}</Text>
-              </Pressable>
-              <Pressable onPress={() => setDate(addDays(date, 1))} hitSlop={8} accessibilityLabel="Giorno successivo">
-                <Ionicons name="chevron-forward" size={24} color={color} />
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable style={styles.dateRow} onPress={() => setDate(params.date ?? todayISO())}>
-              <Text style={[styles.dateText, { color: colors.muted }]}>{type === 'sopralluogo' ? 'Data da concordare' : type === 'lavoro' || type === 'todo' ? 'Nessuna data (da organizzare)' : 'Nessuna data (nota generale)'} · tocca per aggiungerla</Text>
+          <View style={styles.seg}>
+            <Pressable
+              onPress={() => {
+                setDate(null);
+                setShowCalendar(false);
+              }}
+              style={[styles.segHalf, !date && styles.segUnset]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: !date }}
+            >
+              <Ionicons name="time-outline" size={19} color={date ? colors.muted : unscheduled.text} />
+              <Text style={[styles.segText, { color: date ? colors.muted : unscheduled.text }]} numberOfLines={1}>
+                {type === 'sopralluogo' ? 'Da concordare' : type === 'lavoro' || type === 'todo' ? 'Da organizzare' : 'Nessuna data'}
+              </Text>
             </Pressable>
-          )}
+            <Pressable
+              onPress={() => {
+                if (date) setShowCalendar((s) => !s);
+                else {
+                  setDate(params.date ?? todayISO());
+                  setShowCalendar(true);
+                }
+              }}
+              style={[styles.segHalf, date && { backgroundColor: colors.primary }]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: !!date }}
+            >
+              <Ionicons name="calendar-outline" size={19} color={date ? '#fff' : colors.muted} />
+              <Text style={[styles.segText, { color: date ? '#fff' : colors.muted }]} numberOfLines={1}>
+                {date ? formatPickerDate(date) : 'Scegli data'}
+              </Text>
+            </Pressable>
+          </View>
           {date && showCalendar ? (
             <Calendar
               current={date}
               firstDay={1}
-              markedDates={{ [date]: { selected: true, selectedColor: color } }}
+              markedDates={{ [date]: { selected: true, selectedColor: colors.primary } }}
+              theme={{ todayTextColor: colors.primary, arrowColor: colors.primary }}
               onDayPress={(d) => {
                 setDate(d.dateString);
                 setShowCalendar(false);
               }}
-              style={{ marginTop: 8, borderRadius: 12 }}
+              style={{ marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}
             />
-          ) : null}
-          {date ? (
-            <Pressable onPress={() => setDate(null)} style={{ marginTop: 8 }}>
-              <Text style={[styles.link, { color }]}>{type === 'sopralluogo' ? 'Data da concordare' : type === 'lavoro' || type === 'todo' ? 'Data non ancora decisa (da organizzare)' : 'Togli la data'}</Text>
-            </Pressable>
           ) : null}
         </View>
 
@@ -277,9 +289,10 @@ const styles = StyleSheet.create({
   bannerText: { flex: 1, fontSize: 15, fontWeight: '600' },
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   euro: { fontSize: 20, fontWeight: '700', color: colors.text },
-  dateRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 12, gap: 8 },
-  dateText: { fontSize: 16, color: colors.text, textAlign: 'center' },
-  link: { fontSize: 14, fontWeight: '600' },
+  seg: { flexDirection: 'row', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 4, gap: 4 },
+  segHalf: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 11, paddingHorizontal: 6, borderRadius: 9 },
+  segUnset: { backgroundColor: unscheduled.bg, borderWidth: 1, borderColor: unscheduled.border },
+  segText: { fontSize: 15, fontWeight: '600' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.card, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: colors.border },
   switchText: { fontSize: 16, color: colors.text },
   error: { color: colors.danger, fontSize: 14 },
