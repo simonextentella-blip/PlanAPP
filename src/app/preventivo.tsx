@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Chip } from '../components/Chip';
 import { ClientPicker } from '../components/ClientPicker';
+import { ChainPhotos } from '../components/Photos';
 import { brand } from '../lib/brand';
 import { addDays, todayISO } from '../lib/dates';
 import { formatEuro, parseEuro } from '../lib/money';
@@ -134,6 +135,7 @@ export default function QuoteEditor() {
             </View>
           </View>
         ) : null}
+        {todo ?? existing ? <ChainPhotos item={(todo ?? existing)!} /> : null}
 
         <Pressable onPress={() => router.push('/profilo')} style={styles.supplier}>
           <Ionicons name="business-outline" size={18} color={brand.dark} />

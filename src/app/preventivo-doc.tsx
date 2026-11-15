@@ -7,6 +7,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { brand } from '../lib/brand';
 import { normalizeQuote, quoteHtml } from '../lib/quote';
 import { DocFrame } from '../components/DocFrame';
+import { ChainPhotos } from '../components/Photos';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 
@@ -57,6 +58,7 @@ export default function QuoteDocument() {
         <Action icon={item.done ? 'checkmark-circle' : 'ellipse-outline'} label={item.done ? 'Accettato' : 'Segna accettato'} onPress={() => toggleDone(item.id)} />
       </View>
       {msg ? <Text style={styles.msg}>{msg}</Text> : null}
+      <ChainPhotos item={item} />
 
       <View style={styles.paper} onLayout={(e) => setPaperWidth(e.nativeEvent.layout.width)}>
         {paperWidth > 0 ? <DocFrame html={quoteHtml(item, company)} width={paperWidth} /> : null}

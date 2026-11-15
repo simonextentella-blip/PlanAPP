@@ -26,6 +26,8 @@ export interface Item {
   jobId?: string | null;
   /** Cliente collegato (anagrafica Clienti). */
   clientId?: string | null;
+  /** Foto (riferimenti restituiti da lib/photos), aggiunte nei sopralluoghi. */
+  photos?: string[] | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -166,3 +168,31 @@ export const EMPTY_CLIENT: NewClient = { name: '', address: '', cityLine: '', ta
 
 /** Tipi a cui si può collegare un cliente. */
 export const WITH_CLIENT: ItemType[] = ['appuntamento', 'sopralluogo', 'lavoro', 'preventivo', 'soldi'];
+
+/** Gruppo di foto da mostrare per un elemento: le sue e quelle ereditate lungo il percorso. */
+export interface PhotoGroup {
+  label: string;
+  photos: string[];
+}
+
+/**
+ * Foto di un elemento e di quelli da cui nasce:
+ * lavoro ← preventivo ← sopralluogo. Così le foto del sopralluogo si vedono fino al lavoro fatto.
+ */
+export function chainPhotos(item: Item, getItem: (id: string) => Item | undefined): PhotoGroup[] {
+  const groups: PhotoGroup[] = [];
+  const seen = new Set<string>();
+  let cur: Item | undefined = item;
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    if (cur.photos?.length) {
+      const label = cur.id === item.id ? 'Foto' : `Foto ${cur.type === 'sopralluogo' ? 'del sopralluogo' : cur.type === 'preventivo' ? 'del preventivo' : `di ${TYPE_INFO[cur.type].label.toLowerCase()}`}`;
+      groups.push({ label, photos: cur.photos });
+    }
+    const parent: string | null | undefined = cur.quoteId ?? cur.visitId;
+    cur = parent ? getItem(parent) : undefined;
+  }
+  return groups;
+}
+
+export const countPhotos = (groups: PhotoGroup[]) => groups.reduce((n, g) => n + g.photos.length, 0);
