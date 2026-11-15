@@ -134,9 +134,10 @@ export const DEFAULT_COMPANY: Company = {
   phone: '320 375 1083',
 };
 
-/** Tipi che non compaiono nel calendario. */
-export const NOT_IN_CALENDAR: ItemType[] = ['preventivo'];
-export const inCalendar = (it: { type: ItemType }) => !NOT_IN_CALENDAR.includes(it.type);
+/** Nel calendario (e negli impegni di oggi in Home) si vedono solo sopralluoghi e lavori. */
+export const CALENDAR_TYPES: ItemType[] = ['sopralluogo', 'lavoro'];
+/** Niente storico: incassi, cose già fatte e altri tipi restano fuori. */
+export const inCalendar = (it: { type: ItemType; done: boolean }) => CALENDAR_TYPES.includes(it.type) && !it.done;
 
 /** Chiave con cui si salvano i dati fornitore di una persona (nome senza maiuscole/spazi). */
 export const personKey = (name: string) => name.trim().toLowerCase();

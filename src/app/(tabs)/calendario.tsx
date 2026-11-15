@@ -8,11 +8,7 @@ import { ItemCard } from '../../components/ItemCard';
 import { formatRelative, todayISO } from '../../lib/dates';
 import { useStore } from '../../lib/store';
 import { colors } from '../../lib/theme';
-import { TYPE_INFO, type ItemType } from '../../lib/types';
-
-/** Nel calendario si vedono solo sopralluoghi e lavori. */
-const CALENDAR_TYPES: ItemType[] = ['sopralluogo', 'lavoro'];
-const inCalendar = (it: { type: ItemType }) => CALENDAR_TYPES.includes(it.type);
+import { CALENDAR_TYPES, inCalendar, TYPE_INFO, type ItemType } from '../../lib/types';
 
 export default function CalendarScreen() {
   const { items } = useStore();
