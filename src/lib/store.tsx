@@ -1,7 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { loadAccounts, saveAccounts, loadClients, saveClients, loadSuppliers, localRepository, loadProfileName, saveSuppliers, saveProfileName, type ItemRepository } from './repository';
 import { formatEuro } from './money';
-import { deletePhotos } from './photos';
+import { useAuth } from './auth';
+import { deletePhotos, uploadLocalPhoto } from './photos';
+import { isCloudRef } from './cloudPhotos';
+import { flush, loadPending, mergeList, mergeMap, onPendingChange, pendingCount, pullAll, queueListDiff, queueMapDiff, subscribe, type RemoteRecord } from './sync';
 import { blankSupplier, DEFAULT_COMPANY, personKey, type Account, type Client, type Company, type Item, type NewClient, type NewItem } from './types';
 
 interface StoreValue {
@@ -31,6 +35,18 @@ interface StoreValue {
   updateAccount(id: string, name: string): void;
   /** Elimina il conto e tutti i suoi movimenti. */
   removeAccount(id: string): void;
+  /** Stato del collegamento con Supabase. */
+  sync: SyncState;
+  /** Ricarica subito da Supabase e invia ciò che è in attesa. */
+  syncNow(): void;
+}
+
+export interface SyncState {
+  /** off = app non collegata o nessun accesso; offline = ultimo tentativo fallito. */
+  status: 'off' | 'syncing' | 'ok' | 'offline';
+  /** Modifiche fatte qui e non ancora inviate. */
+  pending: number;
+  lastSync: string | null;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -200,6 +216,10 @@ export function StoreProvider({ children, repository = localRepository }: { chil
   const [accounts, setAccounts] = useState<Account[]>([]);
   const userRef = useRef('');
   userRef.current = userName;
+  const itemsRef = useRef<Item[]>([]);
+  itemsRef.current = items;
+  const { session } = useAuth();
+  const [sync, setSync] = useState<SyncState>({ status: 'off', pending: 0, lastSync: null });
 
   useEffect(() => {
     Promise.all([repository.loadAll(), loadProfileName(), loadSuppliers(), loadClients(), loadAccounts()])
@@ -212,10 +232,13 @@ export function StoreProvider({ children, repository = localRepository }: { chil
         if (missing.length) {
           acc = [...acc, ...missing.map((id) => ({ id, name: 'Conto lavori', createdBy: name || 'Io', createdAt: now, updatedAt: now }))];
           saveAccounts(acc).catch(() => {});
+          queueListDiff('accounts', [], acc.filter((a) => missing.includes(a.id)));
         }
         setAccounts(acc);
         setSuppliers(comp);
-        setItems(linkVisitsToQuotes(loaded, loaded, name || 'Io'));
+        const linked = linkVisitsToQuotes(loaded, loaded, name || 'Io');
+        if (linked !== loaded) queueListDiff('items', loaded, linked);
+        setItems(linked);
         setUserNameState(name);
       })
       .catch(() => {
@@ -229,6 +252,7 @@ export function StoreProvider({ children, repository = localRepository }: { chil
       setItems((prev) => {
         const next = linkVisitsToQuotes(prev, updater(prev), userRef.current || 'Io');
         repository.saveAll(next).catch(() => {});
+        queueListDiff('items', prev, next);
         return next;
       });
     },
@@ -251,6 +275,7 @@ export function StoreProvider({ children, repository = localRepository }: { chil
       setSuppliers((prev) => {
         const next = { ...prev, [personKey(userRef.current)]: c };
         saveSuppliers(next).catch(() => {});
+        queueMapDiff('suppliers', prev, next);
         return next;
       });
     },
@@ -306,6 +331,7 @@ export function StoreProvider({ children, repository = localRepository }: { chil
     setClients((prev) => {
       const next = updater(prev);
       saveClients(next).catch(() => {});
+      queueListDiff('clients', prev, next);
       return next;
     });
   }, []);
@@ -338,6 +364,7 @@ export function StoreProvider({ children, repository = localRepository }: { chil
     setAccounts((prev) => {
       const next = updater(prev);
       saveAccounts(next).catch(() => {});
+      queueListDiff('accounts', prev, next);
       return next;
     });
   }, []);
@@ -365,6 +392,109 @@ export function StoreProvider({ children, repository = localRepository }: { chil
     [commitAccounts, commit],
   );
 
+  // ---- Supabase ----
+  /** Applica righe arrivate da Supabase a tutti gli elenchi (e alla copia sul telefono). */
+  const applyRemote = useCallback(
+    (recs: RemoteRecord[], full: boolean) => {
+      setItems((prev) => {
+        const next = mergeList('items', prev, recs, full);
+        if (next !== prev) repository.saveAll(next).catch(() => {});
+        return next;
+      });
+      setClients((prev) => {
+        const next = mergeList('clients', prev, recs, full);
+        if (next !== prev) saveClients(next).catch(() => {});
+        return next;
+      });
+      setAccounts((prev) => {
+        const next = mergeList('accounts', prev, recs, full);
+        if (next !== prev) saveAccounts(next).catch(() => {});
+        return next;
+      });
+      setSuppliers((prev) => {
+        const next = mergeMap('suppliers', prev, recs, full);
+        if (next !== prev) saveSuppliers(next).catch(() => {});
+        return next;
+      });
+    },
+    [repository],
+  );
+
+  /** Foto rimaste solo sul telefono (fatte senza campo o prima del collegamento): le carica online. */
+  const uploadingPhotos = useRef(false);
+  const uploadPendingPhotos = useCallback(async () => {
+    if (uploadingPhotos.current) return;
+    uploadingPhotos.current = true;
+    try {
+      const todo = itemsRef.current.filter((it) => it.photos?.some((p) => !isCloudRef(p)));
+      for (const it of todo) {
+        const map: Record<string, string> = {};
+        for (const p of it.photos ?? []) {
+          if (isCloudRef(p)) continue;
+          const ref = await uploadLocalPhoto(p);
+          if (ref) map[p] = ref;
+        }
+        if (!Object.keys(map).length) continue;
+        const now = new Date().toISOString();
+        commit((prev) => prev.map((x) => (x.id === it.id && x.photos ? { ...x, photos: x.photos.map((p) => map[p] ?? p), updatedAt: now } : x)));
+      }
+    } finally {
+      uploadingPhotos.current = false;
+    }
+  }, [commit]);
+
+  const fullSync = useCallback(async () => {
+    setSync((s) => ({ ...s, status: 'syncing' }));
+    try {
+      await loadPending();
+      const recs = await pullAll();
+      applyRemote(recs, true);
+      // Lascia a React il tempo di applicare (e di mettere in coda ciò che c'è solo qui).
+      await new Promise((r) => setTimeout(r, 50));
+      const ok = await flush();
+      await uploadPendingPhotos();
+      setSync({ status: ok ? 'ok' : 'offline', pending: pendingCount(), lastSync: new Date().toISOString() });
+    } catch {
+      setSync((s) => ({ ...s, status: 'offline', pending: pendingCount() }));
+    }
+  }, [applyRemote, uploadPendingPhotos]);
+
+  const loggedIn = !!session;
+  useEffect(() => {
+    if (!ready || !loggedIn) {
+      setSync({ status: 'off', pending: pendingCount(), lastSync: null });
+      return;
+    }
+    // Nome non ancora scritto: usa la prima parte dell'email (es. "simone").
+    if (!userRef.current && session?.user.email) {
+      const n = session.user.email.split('@')[0].split(/[._-]/)[0];
+      if (n) {
+        const name = n[0].toUpperCase() + n.slice(1);
+        setUserNameState(name);
+        saveProfileName(name).catch(() => {});
+      }
+    }
+    fullSync();
+    const unsub = subscribe((r) => applyRemote([r], false), () => fullSync());
+    const offPending = onPendingChange(() => setSync((s) => ({ ...s, pending: pendingCount() })));
+    const app = AppState.addEventListener('change', (st) => st === 'active' && fullSync());
+    // Riprova a inviare ogni 30 secondi se è rimasto qualcosa in coda.
+    const retry = setInterval(() => {
+      if (pendingCount() > 0) flush().then((ok) => setSync((s) => ({ ...s, status: ok ? 'ok' : 'offline', pending: pendingCount() })));
+    }, 30000);
+    return () => {
+      unsub();
+      offPending();
+      app.remove();
+      clearInterval(retry);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, loggedIn, fullSync, applyRemote]);
+
+  const syncNow = useCallback(() => {
+    if (loggedIn) fullSync();
+  }, [loggedIn, fullSync]);
+
   const value = useMemo<StoreValue>(
     () => ({
       ready,
@@ -389,8 +519,10 @@ export function StoreProvider({ children, repository = localRepository }: { chil
       addAccount,
       updateAccount,
       removeAccount,
+      sync,
+      syncNow,
     }),
-    [ready, items, userName, setUserName, company, setCompany, supplierFor, addItem, updateItem, removeItem, toggleDone, clients, addClient, updateClient, removeClient, accounts, addAccount, updateAccount, removeAccount],
+    [sync, syncNow, ready, items, userName, setUserName, company, setCompany, supplierFor, addItem, updateItem, removeItem, toggleDone, clients, addClient, updateClient, removeClient, accounts, addAccount, updateAccount, removeAccount],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -1,11 +1,13 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import { cloudReady, isCloudRef, removeCloudPhotos, uploadPhoto, useResolvedPhoto } from './cloudPhotos';
 
 /**
  * Foto dei sopralluoghi. Sul telefono ogni foto viene ridotta (lato lungo 1600 px, JPEG)
  * e copiata nella cartella documenti dell'app, così resta anche se il telefono svuota la cache.
- * Nell'elemento salviamo solo il riferimento (qui: l'indirizzo del file).
+ * Se l'app è collegata a Supabase la foto viene anche caricata online e il riferimento diventa "sb:…";
+ * senza campo resta l'indirizzo del file, e verrà caricata più tardi (uploadLocalPhoto).
  */
 export type PhotoSource = 'camera' | 'library';
 
@@ -40,14 +42,37 @@ export async function addPhotos(source: PhotoSource): Promise<string[]> {
     const img = await (await ctx.renderAsync()).saveAsync({ format: SaveFormat.JPEG, compress: 0.7 });
     const dest = new File(dir, `${newId()}.jpg`);
     await new File(img.uri).copy(dest);
-    out.push(dest.uri);
+    out.push(await tryUpload(dest.uri));
   }
   return out;
 }
 
+async function tryUpload(uri: string): Promise<string> {
+  try {
+    if (!(await cloudReady())) return uri;
+    return await uploadPhoto(await new File(uri).arrayBuffer(), uri);
+  } catch {
+    return uri;
+  }
+}
+
+/** Carica online una foto rimasta solo sul telefono. Restituisce il nuovo riferimento, o null. */
+export async function uploadLocalPhoto(ref: string): Promise<string | null> {
+  if (isCloudRef(ref)) return null;
+  try {
+    const f = new File(ref);
+    if (!f.exists) return null;
+    return await uploadPhoto(await f.arrayBuffer(), ref);
+  } catch {
+    return null;
+  }
+}
+
 /** Cancella dal telefono le foto non più usate. */
 export function deletePhotos(refs: string[]) {
+  removeCloudPhotos(refs);
   for (const r of refs) {
+    if (isCloudRef(r)) continue;
     try {
       const f = new File(r);
       if (f.exists) f.delete();
@@ -59,5 +84,5 @@ export function deletePhotos(refs: string[]) {
 
 /** Indirizzo da mostrare in <Image> per un riferimento. */
 export function usePhotoUri(ref: string): string | null {
-  return ref;
+  return useResolvedPhoto(ref, (r) => ({ now: r }));
 }

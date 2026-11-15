@@ -1,11 +1,12 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useState } from 'react';
+import { cloudReady, removeCloudPhotos, uploadPhoto, useResolvedPhoto } from './cloudPhotos';
 
 /**
  * Versione web (PWA): le foto, ridotte a 1600 px in JPEG, stanno nel database del browser
  * (IndexedDB), perché il normale archivio dell'app è troppo piccolo per le immagini.
- * Nell'elemento salviamo il riferimento "idb:<id>".
+ * Nell'elemento salviamo il riferimento "idb:<id>". Se l'app è collegata a Supabase la foto va
+ * direttamente online ("sb:…"); senza campo resta nel browser e verrà caricata più tardi.
  */
 export type PhotoSource = 'camera' | 'library';
 
@@ -71,6 +72,14 @@ export async function addPhotos(source: PhotoSource): Promise<string[]> {
   const out: string[] = [];
   for (const a of res.assets) {
     const data = await shrink(a);
+    try {
+      if (await cloudReady()) {
+        out.push(await uploadPhoto(await (await fetch(data)).blob(), data));
+        continue;
+      }
+    } catch {
+      // senza campo: resta nel browser
+    }
     const id = newId();
     await tx('readwrite', (s) => s.put(data, id));
     cache.set(id, data);
@@ -79,7 +88,24 @@ export async function addPhotos(source: PhotoSource): Promise<string[]> {
   return out;
 }
 
+/** Carica online una foto rimasta nel browser. Restituisce il nuovo riferimento, o null. */
+export async function uploadLocalPhoto(ref: string): Promise<string | null> {
+  if (!ref.startsWith(PREFIX)) return null;
+  const id = ref.slice(PREFIX.length);
+  try {
+    const data = cache.get(id) ?? (await tx<string | undefined>('readonly', (s) => s.get(id)));
+    if (!data) return null;
+    const out = await uploadPhoto(await (await fetch(data)).blob(), data);
+    cache.delete(id);
+    tx('readwrite', (s) => s.delete(id)).catch(() => {});
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 export function deletePhotos(refs: string[]) {
+  removeCloudPhotos(refs);
   for (const r of refs) {
     if (!r.startsWith(PREFIX)) continue;
     const id = r.slice(PREFIX.length);
@@ -89,21 +115,16 @@ export function deletePhotos(refs: string[]) {
 }
 
 export function usePhotoUri(ref: string): string | null {
-  const id = ref.startsWith(PREFIX) ? ref.slice(PREFIX.length) : null;
-  const [uri, setUri] = useState<string | null>(id ? cache.get(id) ?? null : ref);
-  useEffect(() => {
-    if (!id) return setUri(ref);
-    if (cache.has(id)) return setUri(cache.get(id)!);
-    let alive = true;
-    tx<string | undefined>('readonly', (s) => s.get(id))
-      .then((v) => {
+  return useResolvedPhoto(ref, (r) => {
+    const id = r.startsWith(PREFIX) ? r.slice(PREFIX.length) : null;
+    if (!id) return { now: r };
+    if (cache.has(id)) return { now: cache.get(id)! };
+    return {
+      now: null,
+      later: tx<string | undefined>('readonly', (s) => s.get(id)).then((v) => {
         if (v) cache.set(id, v);
-        if (alive) setUri(v ?? null);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
+        return v ?? null;
+      }),
     };
-  }, [id, ref]);
-  return uri;
+  });
 }
