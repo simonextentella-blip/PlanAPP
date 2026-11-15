@@ -89,3 +89,12 @@ export function formatCardDate(iso: string): string {
   if (d.getFullYear() === today.getFullYear()) return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
   return rel;
 }
+
+/** Data nel bottone del giorno: "Oggi", "Domani", altrimenti "Mer 18 nov" (con l'anno se diverso). */
+export function formatPickerDate(iso: string): string {
+  const rel = formatRelative(iso);
+  if (rel === 'Oggi' || rel === 'Domani' || rel === 'Ieri') return rel;
+  const d = parseISODate(iso);
+  const s = `${capitalize(DAYS[d.getDay()].slice(0, 3))} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`;
+  return d.getFullYear() === parseISODate(todayISO()).getFullYear() ? s : `${s} ${d.getFullYear()}`;
+}
