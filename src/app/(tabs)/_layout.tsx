@@ -23,7 +23,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: 'Home', headerShown: false, tabBarIcon: icon('home-outline') }} />
       <Tabs.Screen name="lavori" options={{ title: 'Lavori', headerShown: false, tabBarIcon: icon('construct-outline') }} />
       <Tabs.Screen name="calendario" options={{ title: 'Calendario', tabBarIcon: icon('calendar-outline') }} />
-      <Tabs.Screen name="note" options={{ title: 'Tutte le note', tabBarLabel: 'Note', tabBarIcon: icon('list-outline') }} />
+      <Tabs.Screen name="note" options={{ title: 'Note', tabBarLabel: 'Note', tabBarIcon: icon('list-outline') }} />
     </Tabs>
   );
 }
