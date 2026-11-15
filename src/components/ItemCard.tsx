@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Avatar } from './Avatar';
 import { amountLabel } from '../lib/money';
-import { formatCardDate } from '../lib/dates';
+import { formatCardDate, todayISO } from '../lib/dates';
 import { useStore } from '../lib/store';
 import { colors, unscheduled as UNSCHEDULED } from '../lib/theme';
 import { chainPhotos, CHECKABLE, countPhotos, TYPE_INFO, type Item, type ItemType } from '../lib/types';
@@ -15,7 +15,13 @@ const UNSCHEDULED_LABEL: Partial<Record<ItemType, string>> = {
 };
 
 export function ItemCard({ item, showDate = false, hideType = false }: { item: Item; showDate?: boolean; hideType?: boolean }) {
-  const { toggleDone, getClient, getItem, getAccount } = useStore();
+  const { toggleDone, getClient, getItem, getAccount, updateItem } = useStore();
+  // Lavoro fatto ma non ancora pagato, o la sua entrata in Soldi › Da prendere.
+  const toCollect = !!item.unpaid && ((item.type === 'lavoro' && item.done) || item.type === 'soldi');
+  function markPaid() {
+    if (item.type === 'soldi' && item.jobId && getItem(item.jobId)) updateItem(item.jobId, { unpaid: false });
+    else updateItem(item.id, item.type === 'soldi' ? { unpaid: false, date: todayISO() } : { unpaid: false });
+  }
   const nPhotos = countPhotos(chainPhotos(item, getItem));
   const client = getClient(item.clientId);
   const info = TYPE_INFO[item.type];
@@ -76,6 +82,18 @@ export function ItemCard({ item, showDate = false, hideType = false }: { item: I
             <Text style={[styles.pillText, { color: '#0F766E' }]}>{item.amount == null ? 'Da lavoro fatto · importo da inserire' : 'Da lavoro fatto'}</Text>
           </View>
         ) : null}
+        {toCollect ? (
+          <View style={styles.payRow}>
+            <View style={[styles.pill, styles.payPill]}>
+              <Ionicons name="hourglass-outline" size={12} color="#9A3412" />
+              <Text style={[styles.pillText, { color: '#9A3412' }]}>Da prendere · non ancora pagato</Text>
+            </View>
+            <Pressable onPress={markPaid} hitSlop={8} style={({ pressed }) => [styles.payBtn, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Segna come pagato">
+              <Ionicons name="checkmark" size={14} color="#fff" />
+              <Text style={styles.payBtnText}>Pagato</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {item.quoteId && !item.done ? (
           <View style={[styles.pill, { backgroundColor: '#E6EDE4' }]}>
             <Ionicons name="receipt-outline" size={12} color="#2F3E2F" />
@@ -124,6 +142,10 @@ const styles = StyleSheet.create({
   unscheduled: { backgroundColor: UNSCHEDULED.bg, borderColor: UNSCHEDULED.border, borderStyle: 'dashed', borderWidth: 1 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: '#FDE9C4', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginTop: 5 },
   pillText: { fontSize: 11, fontWeight: '700', color: UNSCHEDULED.text },
+  payRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 5 },
+  payPill: { backgroundColor: '#FFEDD5', marginTop: 0 },
+  payBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#16A34A', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  payBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   check: { paddingLeft: 14, paddingRight: 12, justifyContent: 'center' },
   body: { flex: 1, paddingVertical: 14, paddingRight: 8 },
   avatar: { justifyContent: 'center', paddingRight: 14 },

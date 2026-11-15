@@ -29,6 +29,11 @@ export interface Item {
   quoteId?: string | null;
   /** Entrata in Soldi nata da un lavoro completato: id del lavoro. */
   jobId?: string | null;
+  /**
+   * Lavoro: fatto ma non ancora pagato dal cliente.
+   * Soldi: entrata "da prendere" (non conta nel saldo finché non si segna pagata).
+   */
+  unpaid?: boolean | null;
   /** Cliente collegato (anagrafica Clienti). */
   clientId?: string | null;
   /** Foto (riferimenti restituiti da lib/photos), aggiunte nei sopralluoghi. */

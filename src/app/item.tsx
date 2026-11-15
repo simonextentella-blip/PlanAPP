@@ -46,6 +46,8 @@ export default function ItemScreen() {
   const [date, setDate] = useState<string | null>(existing ? existing.date : params.date ?? (params.type === 'nota' || params.nodate ? null : todayISO()));
   const [time, setTime] = useState(existing?.time ?? '');
   const [done, setDone] = useState(existing?.done ?? false);
+  // Solo lavori fatti: "non ancora pagato" manda l'importo in Soldi › Da prendere.
+  const [unpaid, setUnpaid] = useState(!!existing?.unpaid);
   const [clientId, setClientId] = useState<string | null>(existing?.clientId ?? null);
   const [amount, setAmount] = useState(existing?.amount != null ? formatEuro(existing.amount).replace('€ ', '') : '');
   const [photos, setPhotos] = useState<string[]>(existing?.photos ?? []);
@@ -82,6 +84,7 @@ export default function ItemScreen() {
       amount: parsed,
       direction: type === 'soldi' ? direction : null,
       account,
+      ...(type === 'lavoro' ? { unpaid: done && unpaid } : {}),
       ...(type === 'sopralluogo' ? { photos } : {}),
     };
     if (type === 'sopralluogo') deletePhotos((existing?.photos ?? []).filter((p) => !photos.includes(p)));
@@ -325,6 +328,21 @@ export default function ItemScreen() {
           </View>
         ) : null}
 
+        {type === 'lavoro' && done ? (
+          <View>
+            <Text style={styles.label}>Pagamento</Text>
+            <View style={styles.chips}>
+              <Chip label="Pagato" color="#16A34A" active={!unpaid} onPress={() => setUnpaid(false)} />
+              <Chip label="Non ancora pagato" color="#EA580C" active={unpaid} onPress={() => setUnpaid(true)} />
+            </View>
+            <Text style={styles.hint}>
+              {unpaid
+                ? "L'importo va in Soldi › Da prendere e non conta nel saldo finché non segni Pagato."
+                : "L'importo entra nel saldo di Soldi."}
+            </Text>
+          </View>
+        ) : null}
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable onPress={save} style={[styles.saveBtn, { backgroundColor: color }]}>
@@ -372,6 +390,7 @@ const styles = StyleSheet.create({
   segText: { fontSize: 15, fontWeight: '600' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.card, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: colors.border },
   switchText: { fontSize: 16, color: colors.text },
+  hint: { fontSize: 13, color: colors.muted, marginTop: 8 },
   error: { color: colors.danger, fontSize: 14 },
   saveBtn: { borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
   saveText: { color: '#fff', fontSize: 17, fontWeight: '700' },
