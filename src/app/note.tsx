@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
-import { EmptyState } from '../../components/EmptyState';
-import { Fab } from '../../components/Fab';
-import { ItemCard } from '../../components/ItemCard';
-import { formatRelative } from '../../lib/dates';
-import { useStore } from '../../lib/store';
-import { colors } from '../../lib/theme';
-import type { Item } from '../../lib/types';
+import { EmptyState } from '../components/EmptyState';
+import { Fab } from '../components/Fab';
+import { ItemCard } from '../components/ItemCard';
+import { formatRelative } from '../lib/dates';
+import { useStore } from '../lib/store';
+import { colors } from '../lib/theme';
+import type { Item } from '../lib/types';
 
 export default function AllNotesScreen() {
   const { items } = useStore();

@@ -116,6 +116,8 @@ function typeIcon(type: ItemType) {
 }
 
 function openCategory(type: ItemType) {
+  // I sopralluoghi hanno la loro scheda nella barra sotto.
+  if (type === 'sopralluogo') return router.navigate('/sopralluoghi');
   router.push({ pathname: '/categoria/[type]', params: { type } });
 }
 

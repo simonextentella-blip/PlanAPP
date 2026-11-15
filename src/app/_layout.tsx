@@ -19,6 +19,7 @@ function Gate() {
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="profilo" options={{ title: 'Profilo', headerBackTitle: 'Indietro' }} />
+      <Stack.Screen name="note" options={{ title: 'Note', headerBackTitle: 'Indietro' }} />
       <Stack.Screen name="categoria/[type]" options={{ title: '', headerBackTitle: 'Indietro' }} />
       <Stack.Screen name="preventivo" options={{ title: '', headerBackTitle: 'Indietro' }} />
       <Stack.Screen name="preventivo-doc" options={{ title: '', headerBackTitle: 'Indietro' }} />

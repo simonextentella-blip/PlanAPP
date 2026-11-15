@@ -38,12 +38,12 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >
-      {/* Home e Lavori disegnano il proprio titolo grande al posto della barra. */}
+      {/* Home, Lavori e Sopralluoghi disegnano il proprio titolo grande al posto della barra. */}
       <Tabs.Screen name="index" options={{ title: 'Home', headerShown: false, tabBarIcon: icon('home-outline') }} />
       <Tabs.Screen name="lavori" options={{ title: 'Lavori', headerShown: false, tabBarIcon: icon('construct-outline') }} />
       <Tabs.Screen name="aggiungi" options={{ title: 'Aggiungi', tabBarButton: () => <AddButton /> }} />
+      <Tabs.Screen name="sopralluoghi" options={{ title: 'Sopralluoghi', headerShown: false, tabBarIcon: icon('location-outline') }} />
       <Tabs.Screen name="calendario" options={{ title: 'Calendario', tabBarIcon: icon('calendar-outline') }} />
-      <Tabs.Screen name="note" options={{ title: 'Note', tabBarLabel: 'Note', tabBarIcon: icon('list-outline') }} />
     </Tabs>
   );
 }
