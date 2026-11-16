@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,7 +44,7 @@ export default function JobsScreen() {
   const count = { aperti: jobs.length, organizzare: jobs.filter((it) => !it.date).length };
 
   const empty = {
-    aperti: 'Nessun lavoro in sospeso. Tocca + per aggiungerne uno.',
+    aperti: 'Nessun lavoro in sospeso. Tocca Aggiungi per aggiungerne uno.',
     organizzare: 'Niente da organizzare. Qui finiscono i lavori di cui non si conosce ancora la data.',
     completati: 'Nessun lavoro completato.',
   }[status];
@@ -71,7 +73,18 @@ export default function JobsScreen() {
         stickySectionHeadersEnabled={false}
         ListHeaderComponent={
           <View style={[styles.head, { paddingTop: insets.top + 16 }]}>
-            <Text style={styles.title}>Lavori</Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>Lavori</Text>
+              <Pressable
+                onPress={() => router.push({ pathname: '/item', params: status === 'organizzare' ? { type: 'lavoro', nodate: '1' } : { type: 'lavoro' } })}
+                style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.8 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Aggiungi"
+              >
+                <Ionicons name="add" size={20} color="#fff" />
+                <Text style={styles.addText}>Aggiungi</Text>
+              </Pressable>
+            </View>
             <Text style={styles.summary}>{summary}</Text>
             {/* Barra unica: lo stato dei lavori, ognuno col suo numerino. */}
             <View style={styles.segment} accessibilityRole="tablist">
@@ -134,7 +147,10 @@ export default function JobsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   head: { paddingBottom: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 16 },
   title: { fontSize: 32, fontWeight: '800', color: colors.text, paddingHorizontal: 20, letterSpacing: -0.5 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 10, paddingRight: 14, height: 36, borderRadius: 18, backgroundColor: colors.primary },
+  addText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   summary: { fontSize: 15, color: colors.muted, paddingHorizontal: 20, marginTop: 2 },
   chips: { marginTop: 14, flexGrow: 0 },
   segment: {
