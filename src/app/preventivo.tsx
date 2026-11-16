@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
+import { StepBack } from '../components/StepBack';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Chip } from '../components/Chip';
 import { ClientPicker } from '../components/ClientPicker';
@@ -275,6 +276,7 @@ export default function QuoteEditor() {
         <Pressable onPress={save} style={styles.saveBtn}>
           <Text style={styles.saveText}>{existing ? 'Salva modifiche' : 'Crea preventivo'}</Text>
         </Pressable>
+        {todo && !existing ? <StepBack item={todo} /> : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );
