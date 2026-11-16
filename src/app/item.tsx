@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Swit
 import { Calendar } from 'react-native-calendars';
 import { Chip } from '../components/Chip';
 import { ClientPicker } from '../components/ClientPicker';
+import { StepBack } from '../components/StepBack';
 import { ChainPhotos, PhotoEditor } from '../components/Photos';
 import { deletePhotos } from '../lib/photos';
 import { formatPickerDate, isValidTime, normalizeTime, todayISO } from '../lib/dates';
@@ -351,6 +352,7 @@ export default function ItemScreen() {
 
         {isEdit ? (
           <>
+            <StepBack item={existing!} />
             <Pressable onPress={remove} style={styles.deleteBtn}>
               <Ionicons name="trash-outline" size={18} color={colors.danger} />
               <Text style={styles.deleteText}>{confirmDelete ? 'Tocca di nuovo per eliminare' : 'Elimina'}</Text>

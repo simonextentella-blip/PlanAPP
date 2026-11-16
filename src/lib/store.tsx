@@ -6,6 +6,7 @@ import { useAuth } from './auth';
 import { deletePhotos, uploadLocalPhoto } from './photos';
 import { isCloudRef } from './cloudPhotos';
 import { flush, isPending, loadPending, mergeList, mergeMap, onPendingChange, pendingCount, pullAll, queue, queueListDiff, queueMapDiff, subscribe, type RemoteRecord } from './sync';
+import { applyBackStep, type BackStep } from './steps';
 import { blankSupplier, DEFAULT_COMPANY, personKey, type Account, type Client, type Company, type Item, type NewClient, type NewItem } from './types';
 
 interface StoreValue {
@@ -22,6 +23,8 @@ interface StoreValue {
   updateItem(id: string, patch: Partial<NewItem>): void;
   removeItem(id: string): void;
   toggleDone(id: string): void;
+  /** Torna al passo precedente (vedi lib/steps). */
+  stepBack(id: string, key: BackStep['key']): void;
   getItem(id: string): Item | undefined;
   clients: Client[];
   getClient(id: string | null | undefined): Client | undefined;
@@ -354,6 +357,8 @@ export function StoreProvider({ children, repository = localRepository }: { chil
     [commit],
   );
 
+  const stepBack = useCallback((id: string, key: BackStep['key']) => commit((prev) => applyBackStep(prev, id, key)), [commit]);
+
   const commitClients = useCallback((updater: (prev: Client[]) => Client[]) => {
     setClients((prev) => {
       const next = updater(prev);
@@ -543,6 +548,7 @@ export function StoreProvider({ children, repository = localRepository }: { chil
       updateItem,
       removeItem,
       toggleDone,
+      stepBack,
       getItem: (id) => items.find((it) => it.id === id),
       clients: [...clients].sort((a, b) => a.name.localeCompare(b.name, 'it')),
       getClient: (id) => (id ? clients.find((c) => c.id === id) : undefined),
@@ -557,7 +563,7 @@ export function StoreProvider({ children, repository = localRepository }: { chil
       sync,
       syncNow,
     }),
-    [sync, syncNow, ready, items, userName, setUserName, company, setCompany, supplierFor, addItem, updateItem, removeItem, toggleDone, clients, addClient, updateClient, removeClient, accounts, addAccount, updateAccount, removeAccount],
+    [sync, syncNow, ready, items, userName, setUserName, company, setCompany, supplierFor, addItem, updateItem, removeItem, toggleDone, stepBack, clients, addClient, updateClient, removeClient, accounts, addAccount, updateAccount, removeAccount],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
