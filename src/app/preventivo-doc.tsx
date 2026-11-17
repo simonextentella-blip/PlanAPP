@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Print from 'expo-print';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { brand } from '../lib/brand';
 import { normalizeQuote, quoteHtml } from '../lib/quote';
+import { sharePdf as sharePdfFile } from '../lib/sharePdf';
 import { DocFrame } from '../components/DocFrame';
 import { ChainPhotos } from '../components/Photos';
 import { StepBack } from '../components/StepBack';
@@ -33,17 +32,9 @@ export default function QuoteDocument() {
   const q = normalizeQuote(item.quote as never);
 
   async function sharePdf() {
-    if (Platform.OS === 'web') {
-      setMsg('Il PDF si crea e si condivide dall’app installata sul telefono (WhatsApp, email, ecc.).');
-      return;
-    }
+    setMsg('');
     try {
-      const { uri } = await Print.printToFileAsync({ html: quoteHtml(item!, company) });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: `Preventivo ${q.number}`, UTI: 'com.adobe.pdf' });
-      } else {
-        setMsg('Condivisione non disponibile su questo dispositivo.');
-      }
+      setMsg(await sharePdfFile(quoteHtml(item!, company), `Preventivo ${q.number}`));
     } catch {
       setMsg('Non sono riuscito a creare il PDF. Riprova.');
     }
