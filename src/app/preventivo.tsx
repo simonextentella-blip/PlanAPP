@@ -9,7 +9,7 @@ import { ChainPhotos } from '../components/Photos';
 import { brand } from '../lib/brand';
 import { addDays, todayISO } from '../lib/dates';
 import { formatEuro, parseEuro } from '../lib/money';
-import { DEFAULT_CONDITIONS, DEFAULT_TEAM, formatShort, FORFETTARIO_NOTE, MARKUP_OPTIONS, nextQuoteNumber, normalizeQuote, quoteTotals, uid, VAT_OPTIONS } from '../lib/quote';
+import { DEFAULT_CONDITIONS, DEFAULT_TEAM, formatShort, FORFETTARIO_NOTE, MARKUP_OPTIONS, nextQuoteNumber, nextVersionNumber, normalizeQuote, quoteTotals, uid, VAT_OPTIONS } from '../lib/quote';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 import type { Quote, QuoteCondition, QuoteTeamRow, QuoteWork } from '../lib/types';
@@ -18,19 +18,24 @@ const ACCENT = brand.green;
 const VALIDITY = [30, 60, 90];
 
 export default function QuoteEditor() {
-  const { id, from } = useLocalSearchParams<{ id?: string; from?: string }>();
+  const { id, from, copy } = useLocalSearchParams<{ id?: string; from?: string; copy?: string }>();
   const { items, getItem, addItem, updateItem, supplierFor, userName, getClient, clients, addClient, updateClient } = useStore();
   const existing = id ? getItem(id) : undefined;
   // Preventivo "da fare" creato da un sopralluogo: lo completiamo invece di crearne uno nuovo.
   const todo = from ? getItem(from) : undefined;
   const visit = todo?.visitId ? getItem(todo.visitId) : undefined;
+  // Nuova versione: un preventivo esistente da cui partire (la copia è indipendente).
+  const source = !existing && copy ? getItem(copy) : undefined;
   const supplier = supplierFor(existing?.createdBy ?? (userName || 'Io'));
-  const q: Quote | null = existing?.quote ? normalizeQuote(existing.quote as never) : null;
+  const base = existing ?? (source?.quote ? source : undefined);
+  const q: Quote | null = base?.quote ? normalizeQuote(base.quote as never) : null;
 
-  const [number, setNumber] = useState(q?.number || nextQuoteNumber(items, new Date().getFullYear()));
+  const [number, setNumber] = useState(
+    source?.quote ? nextVersionNumber(items, source.quote.number) : q?.number || nextQuoteNumber(items, new Date().getFullYear()),
+  );
   const [date, setDate] = useState(existing?.date ?? todayISO());
   const [validity, setValidity] = useState(q?.validityDays ?? 60);
-  const startClient = getClient(existing?.clientId ?? todo?.clientId);
+  const startClient = getClient(base?.clientId ?? todo?.clientId);
   const [clientId, setClientId] = useState<string | null>(startClient?.id ?? null);
   const [client, setClient] = useState(
     q?.client ??
@@ -108,6 +113,9 @@ export default function QuoteEditor() {
     } else if (todo) {
       updateItem(todo.id, { ...data, visitId: todo.visitId });
       router.replace({ pathname: '/preventivo-doc', params: { id: todo.id } });
+    } else if (source) {
+      const created = addItem({ ...data, done: false, visitId: source.visitId ?? null });
+      router.replace({ pathname: '/preventivo-doc', params: { id: created.id } });
     } else {
       const created = addItem(data);
       router.replace({ pathname: '/preventivo-doc', params: { id: created.id } });
@@ -118,7 +126,7 @@ export default function QuoteEditor() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen
         options={{
-          title: existing ? 'Modifica preventivo' : 'Nuovo preventivo',
+          title: existing ? 'Modifica preventivo' : source ? 'Nuova versione' : 'Nuovo preventivo',
           headerRight: () => (
             <Pressable onPress={save} hitSlop={10}>
               <Text style={styles.headerBtn}>Salva</Text>
@@ -136,7 +144,16 @@ export default function QuoteEditor() {
             </View>
           </View>
         ) : null}
-        {todo ?? existing ? <ChainPhotos item={(todo ?? existing)!} /> : null}
+        {source?.quote ? (
+          <View style={styles.fromVisit}>
+            <Ionicons name="copy-outline" size={18} color={brand.dark} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fromVisitTitle}>Copia del preventivo N. {source.quote.number}</Text>
+              <Text style={styles.fromVisitText}>Modifica quello che vuoi: l’originale resta com’è.</Text>
+            </View>
+          </View>
+        ) : null}
+        {todo ?? existing ?? source ? <ChainPhotos item={(todo ?? existing ?? source)!} /> : null}
 
         <Pressable onPress={() => router.push('/profilo')} style={styles.supplier}>
           <Ionicons name="business-outline" size={18} color={brand.dark} />
@@ -274,7 +291,7 @@ export default function QuoteEditor() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Pressable onPress={save} style={styles.saveBtn}>
-          <Text style={styles.saveText}>{existing ? 'Salva modifiche' : 'Crea preventivo'}</Text>
+          <Text style={styles.saveText}>{existing ? 'Salva modifiche' : source ? 'Crea nuova versione' : 'Crea preventivo'}</Text>
         </Pressable>
         {todo && !existing ? <StepBack item={todo} /> : null}
       </ScrollView>

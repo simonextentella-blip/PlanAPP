@@ -5,7 +5,8 @@ import * as Sharing from 'expo-sharing';
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { brand } from '../lib/brand';
-import { normalizeQuote, quoteHtml } from '../lib/quote';
+import { normalizeQuote, quoteHtml, quoteVersions } from '../lib/quote';
+import { formatEuro } from '../lib/money';
 import { DocFrame } from '../components/DocFrame';
 import { ChainPhotos } from '../components/Photos';
 import { StepBack } from '../components/StepBack';
@@ -14,7 +15,7 @@ import { colors } from '../lib/theme';
 
 export default function QuoteDocument() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getItem, supplierFor, toggleDone, removeItem } = useStore();
+  const { items, getItem, supplierFor, toggleDone, removeItem } = useStore();
   const item = getItem(id);
   const [msg, setMsg] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -31,6 +32,7 @@ export default function QuoteDocument() {
   // Il fornitore è chi ha creato il preventivo.
   const company = supplierFor(item.createdBy);
   const q = normalizeQuote(item.quote as never);
+  const versions = quoteVersions(items, q.number);
 
   async function sharePdf() {
     if (Platform.OS === 'web') {
@@ -56,9 +58,33 @@ export default function QuoteDocument() {
       <View style={styles.actions}>
         <Action icon="share-outline" label="Condividi PDF" onPress={sharePdf} primary />
         <Action icon="create-outline" label="Modifica" onPress={() => router.push({ pathname: '/preventivo', params: { id: item.id } })} />
-        <Action icon={item.done ? 'checkmark-circle' : 'ellipse-outline'} label={item.done ? 'Accettato' : 'Segna accettato'} onPress={() => toggleDone(item.id)} />
+        <Action icon="copy-outline" label="Duplica" onPress={() => router.push({ pathname: '/preventivo', params: { copy: item.id } })} />
+        <Action icon={item.done ? 'checkmark-circle' : 'ellipse-outline'} label={item.done ? 'Accettato' : 'Accettato?'} onPress={() => toggleDone(item.id)} />
       </View>
       {msg ? <Text style={styles.msg}>{msg}</Text> : null}
+      {versions.length > 1 ? (
+        <View style={styles.versions}>
+          <Text style={styles.versionsTitle}>Versioni di questo preventivo</Text>
+          {versions.map((v) => {
+            const current = v.id === item.id;
+            return (
+              <Pressable
+                key={v.id}
+                disabled={current}
+                onPress={() => router.replace({ pathname: '/preventivo-doc', params: { id: v.id } })}
+                style={[styles.version, current && styles.versionCurrent]}
+              >
+                <Text style={[styles.versionNum, current && { color: '#fff' }]}>N. {v.quote!.number}</Text>
+                <Text style={[styles.versionInfo, current && { color: '#fff' }]} numberOfLines={1}>
+                  {v.done ? 'Accettato · ' : ''}
+                  {formatEuro(v.amount ?? 0)}
+                </Text>
+                {current ? <Text style={styles.versionHere}>questa</Text> : <Ionicons name="chevron-forward" size={16} color={colors.muted} />}
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
       <ChainPhotos item={item} />
 
       <View style={styles.paper} onLayout={(e) => setPaperWidth(e.nativeEvent.layout.width)}>
@@ -100,6 +126,13 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 8 },
   action: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   actionText: { fontSize: 12, fontWeight: '600', color: colors.text },
+  versions: { backgroundColor: colors.card, borderRadius: 12, padding: 10, gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  versionsTitle: { fontSize: 12, fontWeight: '800', color: brand.dark, textTransform: 'uppercase', letterSpacing: 1 },
+  version: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10, backgroundColor: colors.bg },
+  versionCurrent: { backgroundColor: brand.dark },
+  versionNum: { fontSize: 14, fontWeight: '700', color: colors.text },
+  versionInfo: { flex: 1, fontSize: 13, color: colors.muted, textAlign: 'right' },
+  versionHere: { fontSize: 12, fontWeight: '700', color: '#fff' },
   msg: { fontSize: 13, color: colors.muted, textAlign: 'center' },
   paper: { backgroundColor: '#fff', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
   muted: { fontSize: 13, color: '#666' },
