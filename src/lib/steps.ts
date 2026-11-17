@@ -42,7 +42,8 @@ export function backSteps(item: Item, items: Item[]): BackStep[] {
       steps.push({ key: 'undo', label: 'Rimetti in attesa', hint: job ? 'Il preventivo torna In attesa e il lavoro creato da lui viene tolto.' : 'Il preventivo torna In attesa.', confirm: !!job });
       return steps;
     }
-    if (find(items, item.visitId)) {
+    // Con più versioni dello stesso sopralluogo non si torna indietro da una sola di esse.
+    if (find(items, item.visitId) && !items.some((it) => it.id !== item.id && it.visitId === item.visitId)) {
       steps.push({
         key: 'toVisit',
         label: 'Rimetti il sopralluogo da fare',
@@ -53,8 +54,9 @@ export function backSteps(item: Item, items: Item[]): BackStep[] {
     return steps;
   }
   if (item.type === 'sopralluogo' && item.done) {
-    const pv = items.find((it) => it.visitId === item.id);
-    if (pv?.done) return steps; // prima va rimesso in attesa il preventivo
+    const pvs = items.filter((it) => it.visitId === item.id);
+    const pv = pvs[0];
+    if (pvs.some((it) => it.done)) return steps; // prima va rimesso in attesa il preventivo
     steps.push({ key: 'undo', label: 'Rimetti da fare', hint: pv ? 'Il sopralluogo torna da fare e il preventivo creato da lui viene tolto.' : 'Il sopralluogo torna da fare.', confirm: !!pv });
     return steps;
   }
@@ -93,8 +95,8 @@ export function applyBackStep(items: Item[], id: string, key: BackStep['key']): 
     return drop(item, item.visitId)(patch(item.visitId, { done: false })(items));
   }
   if (key === 'undo' && item.type === 'sopralluogo') {
-    const child = items.find((it) => it.visitId === item.id && !it.done);
-    return drop(child, item.id)(patch(item.id, { done: false })(items));
+    const children = items.filter((it) => it.visitId === item.id && !it.done);
+    return children.reduce((list, child) => drop(child, item.id)(list), patch(item.id, { done: false })(items));
   }
   if (key === 'undo') return patch(item.id, { done: false })(items);
   return items;

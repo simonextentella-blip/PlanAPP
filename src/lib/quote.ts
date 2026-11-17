@@ -35,10 +35,37 @@ export function quoteTotals(q: Pick<Quote, 'total' | 'vatRate' | 'markup'>) {
 export function nextQuoteNumber(items: Item[], year: number): string {
   let max = 0;
   for (const it of items) {
-    const m = it.quote?.number?.match(/^(\d{4})\/(\d+)$/);
+    const m = it.quote?.number?.match(/^(\d{4})\/(\d+)(?:-v\d+)?$/i);
     if (m && Number(m[1]) === year) max = Math.max(max, Number(m[2]));
   }
   return `${year}/${String(max + 1).padStart(3, '0')}`;
+}
+
+/** "2026/005-v2" → "2026/005": il numero comune a tutte le versioni di un preventivo. */
+export function baseQuoteNumber(number: string): string {
+  return number.trim().replace(/-v\d+$/i, '');
+}
+
+/** Tutte le versioni dello stesso preventivo (stesso numero base), in ordine di numero. */
+export function quoteVersions(items: Item[], number: string): Item[] {
+  const base = baseQuoteNumber(number);
+  return items
+    .filter((it) => it.quote && baseQuoteNumber(it.quote.number) === base)
+    .sort((a, b) => versionOf(a.quote!.number) - versionOf(b.quote!.number));
+}
+
+/** "2026/005" → 1, "2026/005-v3" → 3 */
+export function versionOf(number: string): number {
+  const m = number.trim().match(/-v(\d+)$/i);
+  return m ? Number(m[1]) : 1;
+}
+
+/** Numero per una nuova copia: "2026/005" → "2026/005-v2" (o la prima versione libera). */
+export function nextVersionNumber(items: Item[], number: string): string {
+  const base = baseQuoteNumber(number);
+  let max = 1;
+  for (const it of quoteVersions(items, base)) max = Math.max(max, versionOf(it.quote!.number));
+  return `${base}-v${max + 1}`;
 }
 
 /** "12/11/2026" */
