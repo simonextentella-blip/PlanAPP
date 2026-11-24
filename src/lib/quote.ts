@@ -69,6 +69,12 @@ export function nextVersionNumber(items: Item[], number: string): string {
 }
 
 /** "12/11/2026" */
+/** Titolo della voce preventivo: cliente e oggetto se ci sono, altrimenti il numero. */
+export function quoteTitle(q: Pick<Quote, 'client' | 'subject' | 'number'>): string {
+  const parts = [q.client.name.trim(), q.subject.trim()].filter(Boolean);
+  return parts.length ? parts.join(' – ') : `Preventivo N. ${q.number}`;
+}
+
 export function formatShort(iso: string) {
   const d = parseISODate(iso);
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
@@ -150,6 +156,7 @@ table{width:100%;border-collapse:collapse}
 .foot{font-style:italic;font-size:7.5pt;color:#666;margin-top:6px}
 .conds th{text-align:left;width:34%;padding:5px 0;border-bottom:1px solid #d9dfd6;font-weight:700;vertical-align:top}.conds td{padding:5px 0;border-bottom:1px solid #d9dfd6}
 .sign{display:flex;gap:48px;margin-top:24px;page-break-inside:avoid}.sign div{flex:1}.sign .line{border-bottom:1px solid #555;height:34px}.sign small{color:#666;font-size:7.5pt}
+.party .blank{border-bottom:1px solid #bbb;height:18px;margin-top:2px}
 .stripe.bottom{margin:18px 0 0}
 @media screen{html{background:#fff}body{width:794px;padding:40px 49px 36px}}
 </style></head><body>
@@ -157,7 +164,7 @@ table{width:100%;border-collapse:collapse}
 <div class="head"><div class="brand"><img src="${LOGO_DATA_URI}" alt=""><div><div class="bname">${spaced(company.name)}</div><div class="bowner">${esc(company.owner)}</div><div class="btag">${esc(company.tagline)}</div></div></div>
 <div class="doc"><div class="t">PREVENTIVO</div>N. <b>${esc(q.number)}</b><br>Data <b>${formatShort(date)}</b><br>Valido fino al <b>${formatShort(addDays(date, q.validityDays))}</b></div></div>
 <div class="parties"><div class="party"><div class="lbl">FORNITORE</div><b>${esc(company.legalName)}</b><br>${esc(company.address)}<br>${esc(company.cityLine)}<br>P.IVA ${esc(company.vat)}${company.cf ? ` &nbsp;·&nbsp; C.F. ${esc(company.cf)}` : ''}<br>${[company.email, company.phone].filter(Boolean).map(esc).join(' &nbsp;·&nbsp; ')}</div>
-<div class="party"><div class="lbl">CLIENTE</div><b>${esc(q.client.name)}</b>${clientLines ? `<br>${clientLines}` : ''}${q.client.site ? `<br><span style="color:#666">Luogo intervento:</span> ${esc(q.client.site)}` : ''}</div></div>
+<div class="party"><div class="lbl">CLIENTE</div>${q.client.name || clientLines ? `<b>${esc(q.client.name)}</b>${clientLines ? `${q.client.name ? '<br>' : ''}${clientLines}` : ''}` : '<div class="blank"></div><div class="blank"></div>'}${q.client.site ? `<br><span style="color:#666">Luogo intervento:</span> ${esc(q.client.site)}` : ''}</div></div>
 ${q.subject ? `<div class="subject"><span class="lbl" style="margin:0">OGGETTO</span><b>${esc(q.subject)}</b></div>` : ''}
 ${team ? `${sec('Squadra impiegata')}<ul>${team}</ul>` : ''}
 ${works ? `${sec('Lavorazioni')}<table class="works"><thead><tr><th style="text-align:center">N.</th><th>DESCRIZIONE</th><th style="text-align:center">Q.TÀ</th></tr></thead><tbody>${works}</tbody></table>` : ''}
