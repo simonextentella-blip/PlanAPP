@@ -9,7 +9,7 @@ import { ChainPhotos } from '../components/Photos';
 import { brand } from '../lib/brand';
 import { addDays, todayISO } from '../lib/dates';
 import { formatEuro, parseEuro } from '../lib/money';
-import { DEFAULT_CONDITIONS, DEFAULT_TEAM, formatShort, FORFETTARIO_NOTE, MARKUP_OPTIONS, nextQuoteNumber, nextVersionNumber, normalizeQuote, quoteTotals, uid, VAT_OPTIONS } from '../lib/quote';
+import { DEFAULT_CONDITIONS, DEFAULT_TEAM, formatShort, FORFETTARIO_NOTE, MARKUP_OPTIONS, nextQuoteNumber, nextVersionNumber, normalizeQuote, quoteTitle, quoteTotals, uid, VAT_OPTIONS } from '../lib/quote';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 import type { Quote, QuoteCondition, QuoteTeamRow, QuoteWork } from '../lib/types';
@@ -66,7 +66,6 @@ export default function QuoteEditor() {
   }
 
   function save() {
-    if (!client.name.trim()) return setError('Scrivi il nome del cliente.');
     const cleanWorks = works.filter((w) => w.title.trim() || w.description.trim());
     if (cleanWorks.length === 0) return setError('Aggiungi almeno una lavorazione.');
     if (parsedTotal == null) return setError('Scrivi il totale a corpo (es. 2300,00).');
@@ -83,8 +82,9 @@ export default function QuoteEditor() {
       validityDays: validity,
     };
     // Collega (o crea) il cliente in anagrafica.
+    // Il cliente è facoltativo: se non c'è un nome non si crea nulla in anagrafica.
     let cid = clientId;
-    if (!cid) {
+    if (!cid && quote.client.name) {
       const same = clients.find((c) => c.name.trim().toLowerCase() === quote.client.name.toLowerCase());
       cid = (same ?? addClient({ name: quote.client.name, address: quote.client.address, cityLine: quote.client.cityLine, taxId: quote.client.taxId, phone: '', email: '', notes: '' })).id;
     }
@@ -98,7 +98,7 @@ export default function QuoteEditor() {
     const data = {
       clientId: cid,
       type: 'preventivo' as const,
-      title: `${quote.client.name}${quote.subject ? ` – ${quote.subject}` : ''}`,
+      title: quoteTitle(quote),
       description: `Preventivo N. ${quote.number}${quote.client.site ? ` · ${quote.client.site}` : ''}`,
       date,
       time: null,
@@ -189,7 +189,7 @@ export default function QuoteEditor() {
           </Field>
         </Card>
 
-        <Card title="Cliente">
+        <Card title="Cliente (facoltativo)">
           <ClientPicker
             value={clientId}
             color={ACCENT}
@@ -199,8 +199,8 @@ export default function QuoteEditor() {
               setError('');
             }}
           />
-          <Text style={styles.small}>oppure scrivi i dati: il cliente verrà salvato in Clienti</Text>
-          <Input value={client.name} onChangeText={setC('name')} placeholder="Nome e cognome / ragione sociale *" />
+          <Text style={styles.small}>oppure scrivi i dati: il cliente verrà salvato in Clienti. Puoi anche lasciarlo vuoto.</Text>
+          <Input value={client.name} onChangeText={setC('name')} placeholder="Nome e cognome / ragione sociale" />
           <Input value={client.address} onChangeText={setC('address')} placeholder="Indirizzo" />
           <Input value={client.cityLine} onChangeText={setC('cityLine')} placeholder="CAP Città (Prov.)" />
           <Input value={client.taxId} onChangeText={setC('taxId')} placeholder="C.F. / P.IVA" />

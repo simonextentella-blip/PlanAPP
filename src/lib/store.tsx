@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { AppState } from 'react-native';
 import { loadAccounts, saveAccounts, loadClients, saveClients, loadSuppliers, localRepository, loadProfileName, saveSuppliers, saveProfileName, type ItemRepository } from './repository';
 import { formatEuro } from './money';
+import { quoteTitle } from './quote';
 import { useAuth } from './auth';
 import { deletePhotos, uploadLocalPhoto } from './photos';
 import { isCloudRef } from './cloudPhotos';
@@ -113,7 +114,7 @@ export function linkQuotesToJobs(prev: Item[], next: Item[], author: string): It
     if (pv.type !== 'preventivo' || !pv.done || before.get(pv.id)?.done) continue;
     if (out.some((it) => it.quoteId === pv.id)) continue;
     const q = pv.quote;
-    const title = q ? `${q.client.name}${q.subject ? ` – ${q.subject}` : ''}` : pv.title;
+    const title = q ? quoteTitle(q) : pv.title;
     const details = [
       q ? `Preventivo N. ${q.number} accettato${pv.amount != null ? ` · ${formatEuro(pv.amount)}` : ''}` : 'Preventivo accettato',
       q?.client.site ? `Luogo: ${q.client.site}` : '',
