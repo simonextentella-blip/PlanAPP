@@ -5,7 +5,7 @@ import { formatPickerDate } from '../lib/dates';
 import { formatEuro } from '../lib/money';
 import { useStore } from '../lib/store';
 import { colors, unscheduled as UNSCHEDULED } from '../lib/theme';
-import { chainPhotos, countPhotos, TYPE_INFO, type Item } from '../lib/types';
+import { chainPhotos, collabLabel, countPhotos, TYPE_INFO, type Item } from '../lib/types';
 
 /** "Valentina Rossi – Abbattimento" → "Abbattimento"; "Lavoro – Valentina Rossi" → "". */
 function stripClient(title: string, clientName: string | undefined, typeLabel: string): string {
@@ -32,9 +32,11 @@ export function ItemRow({ item, first, last }: { item: Item; first: boolean; las
   const unscheduled = !item.date && !item.done;
   const nPhotos = countPhotos(chainPhotos(item, getItem));
 
-  const main = client?.name ?? item.title;
+  // Chi: il cliente, oppure "Collaborazione con …" per i lavori senza cliente.
+  const who = client?.name ?? collabLabel(item);
+  const main = who ?? item.title;
   // Se il titolo è solo "Lavoro – Cliente", sotto mettiamo la prima riga delle note.
-  const what = (client ? stripClient(item.title, client.name, info.label) : '') || (item.description ?? '').split('\n')[0].trim();
+  const what = (who ? stripClient(item.title, who, info.label) : '') || (item.description ?? '').split('\n')[0].trim();
   const when = item.date ? [formatPickerDate(item.date), item.time].filter(Boolean).join(' · ') : '';
   const sub = [when, what].filter(Boolean).join(' · ');
   const toCollect = item.type === 'lavoro' && item.done && !!item.unpaid;

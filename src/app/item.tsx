@@ -13,7 +13,7 @@ import { SPESA_CATEGORIES } from '../lib/spese';
 import { useStore } from '../lib/store';
 import { colors, unscheduled } from '../lib/theme';
 import { formatEuro, parseEuro } from '../lib/money';
-import { CHECKABLE, doneLabel, TYPE_INFO, WITH_AMOUNT, type Direction, type ItemType, WITH_CLIENT } from '../lib/types';
+import { CHECKABLE, collabLabel, doneLabel, TYPE_INFO, WITH_AMOUNT, type Direction, type ItemType, WITH_CLIENT } from '../lib/types';
 
 const PLACEHOLDERS: Record<ItemType, string> = {
   appuntamento: 'Es. Incontro con il cliente Rossi',
@@ -50,6 +50,9 @@ export default function ItemScreen() {
   // Solo lavori fatti: "non ancora pagato" manda l'importo in Soldi › Da prendere.
   const [unpaid, setUnpaid] = useState(!!existing?.unpaid);
   const [clientId, setClientId] = useState<string | null>(existing?.clientId ?? null);
+  // Lavoro senza cliente: "Collaborazione" con un nome facoltativo, scritto ogni volta.
+  const [isCollab, setIsCollab] = useState(existing?.collab != null);
+  const [collabName, setCollabName] = useState(existing?.collab ?? '');
   const [amount, setAmount] = useState(existing?.amount != null ? formatEuro(existing.amount).replace('€ ', '') : '');
   const [photos, setPhotos] = useState<string[]>(existing?.photos ?? []);
   const [direction, setDirection] = useState<Direction>(existing?.direction ?? params.direction ?? 'entrata');
@@ -66,8 +69,9 @@ export default function ItemScreen() {
   const typeFixed = isEdit || !!params.type;
 
   function save() {
-    const chosen = clientId ? getClient(clientId) : undefined;
-    const t = title.trim() || (chosen ? `${TYPE_INFO[type].label} – ${chosen.name}` : '');
+    const collab = type === 'lavoro' && isCollab ? collabName.trim() : null;
+    const chosen = clientId && collab == null ? getClient(clientId) : undefined;
+    const t = title.trim() || (collab != null ? collabLabel({ collab })! : chosen ? `${TYPE_INFO[type].label} – ${chosen.name}` : '');
     if (!t) return setError(isSpesa ? 'Scegli una categoria: Pranzo, Benzina, Materiali o Altro.' : 'Scrivi un titolo (o scegli un cliente).');
     const tm = time.trim();
     if (tm && !isValidTime(tm)) return setError('Orario non valido: usa il formato 09:30.');
@@ -81,7 +85,8 @@ export default function ItemScreen() {
       date,
       time: tm && date ? normalizeTime(tm) : null,
       done: CHECKABLE.includes(type) ? done : false,
-      clientId: WITH_CLIENT.includes(type) && !isSpesa ? clientId : null,
+      clientId: WITH_CLIENT.includes(type) && !isSpesa && collab == null ? clientId : null,
+      ...(type === 'lavoro' ? { collab } : {}),
       amount: parsed,
       direction: type === 'soldi' ? direction : null,
       account,
@@ -167,8 +172,24 @@ export default function ItemScreen() {
 
         {WITH_CLIENT.includes(type) && !isSpesa ? (
           <View>
-            <Text style={styles.label}>Cliente</Text>
-            <ClientPicker value={clientId} onChange={(c) => setClientId(c?.id ?? null)} color={color} />
+            <Text style={styles.label}>{type === 'lavoro' ? 'Per chi' : 'Cliente'}</Text>
+            {type === 'lavoro' ? (
+              <View style={[styles.chips, { marginBottom: 10 }]}>
+                <Chip label="Cliente" color={color} active={!isCollab} onPress={() => setIsCollab(false)} />
+                <Chip label="Collaborazione" color={color} active={isCollab} onPress={() => setIsCollab(true)} />
+              </View>
+            ) : null}
+            {type === 'lavoro' && isCollab ? (
+              <TextInput
+                value={collabName}
+                onChangeText={setCollabName}
+                placeholder="Con chi? (facoltativo)"
+                placeholderTextColor={colors.muted}
+                style={styles.input}
+              />
+            ) : (
+              <ClientPicker value={clientId} onChange={(c) => setClientId(c?.id ?? null)} color={color} />
+            )}
           </View>
         ) : null}
 
