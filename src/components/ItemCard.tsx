@@ -3,10 +3,10 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Avatar } from './Avatar';
 import { amountLabel } from '../lib/money';
-import { formatCardDate, todayISO } from '../lib/dates';
+import { formatCardDate, formatRange, todayISO } from '../lib/dates';
 import { useStore } from '../lib/store';
 import { colors, unscheduled as UNSCHEDULED } from '../lib/theme';
-import { chainPhotos, CHECKABLE, collabLabel, countPhotos, TYPE_INFO, type Item, type ItemType } from '../lib/types';
+import { chainPhotos, CHECKABLE, collabLabel, countPhotos, lastDay, TYPE_INFO, type Item, type ItemType } from '../lib/types';
 
 const UNSCHEDULED_LABEL: Partial<Record<ItemType, string>> = {
   lavoro: 'Scegli una data',
@@ -31,7 +31,8 @@ export function ItemCard({ item, showDate = false, hideType = false }: { item: I
   const unscheduled = !item.date && !item.done && UNSCHEDULED_LABEL[item.type] !== undefined;
 
   const meta = [
-    showDate && item.date ? formatCardDate(item.date) : null,
+    // Lavoro su più giorni: l'intervallo si vede sempre (anche nel calendario, su ogni giorno).
+    item.date && lastDay(item) !== item.date ? formatRange(item.date, lastDay(item)!) : showDate && item.date ? formatCardDate(item.date) : null,
     item.time,
     client?.name ?? (item.title === collabLabel(item) ? null : collabLabel(item)),
     amountLabel(item),

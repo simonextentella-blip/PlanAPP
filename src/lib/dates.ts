@@ -98,3 +98,27 @@ export function formatPickerDate(iso: string): string {
   const s = `${capitalize(DAYS[d.getDay()].slice(0, 3))} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`;
   return d.getFullYear() === parseISODate(todayISO()).getFullYear() ? s : `${s} ${d.getFullYear()}`;
 }
+
+/** Tutti i giorni da `from` a `to` compresi (al massimo `max`, per sicurezza). */
+export function daysBetween(from: string, to: string, max = 400): string[] {
+  const out: string[] = [];
+  for (let d = from; d <= to && out.length < max; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+
+/** Quanti giorni da `from` a `to` compresi: 18 → 20 = 3. */
+export function countDays(from: string, to: string): number {
+  return Math.round((parseISODate(to).getTime() - parseISODate(from).getTime()) / 86400000) + 1;
+}
+
+/** "Dal 18 al 20 nov", "Dal 28 nov al 2 dic" (con l'anno se non è quello in corso). */
+export function formatRange(from: string, to: string): string {
+  const a = parseISODate(from);
+  const b = parseISODate(to);
+  const year = parseISODate(todayISO()).getFullYear();
+  const mon = (d: Date) => MONTHS[d.getMonth()].slice(0, 3);
+  const yr = (d: Date) => (d.getFullYear() === year ? '' : ` ${d.getFullYear()}`);
+  if (a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()) return `Dal ${a.getDate()} al ${b.getDate()} ${mon(b)}${yr(b)}`;
+  const sameYear = a.getFullYear() === b.getFullYear();
+  return `Dal ${a.getDate()} ${mon(a)}${sameYear ? '' : yr(a)} al ${b.getDate()} ${mon(b)}${yr(b)}`;
+}

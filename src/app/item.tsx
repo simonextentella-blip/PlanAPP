@@ -8,7 +8,7 @@ import { ClientPicker } from '../components/ClientPicker';
 import { StepBack } from '../components/StepBack';
 import { ChainPhotos, PhotoEditor } from '../components/Photos';
 import { deletePhotos } from '../lib/photos';
-import { formatPickerDate, isValidTime, normalizeTime, todayISO } from '../lib/dates';
+import { addDays, countDays, daysBetween, formatPickerDate, isValidTime, normalizeTime, todayISO } from '../lib/dates';
 import { SPESA_CATEGORIES } from '../lib/spese';
 import { useStore } from '../lib/store';
 import { colors, unscheduled } from '../lib/theme';
@@ -45,6 +45,9 @@ export default function ItemScreen() {
   const [title, setTitle] = useState(existing?.title ?? params.title ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
   const [date, setDate] = useState<string | null>(existing ? existing.date : params.date ?? (params.type === 'nota' || params.nodate ? null : todayISO()));
+  // Solo lavori: ultimo giorno se il lavoro dura più giorni (Dal … Al …).
+  const [endDate, setEndDate] = useState<string | null>(existing?.endDate ?? null);
+  const [showEndCalendar, setShowEndCalendar] = useState(false);
   const [time, setTime] = useState(existing?.time ?? '');
   const [done, setDone] = useState(existing?.done ?? false);
   // Solo lavori fatti: "non ancora pagato" manda l'importo in Soldi › Da prendere.
@@ -64,6 +67,13 @@ export default function ItemScreen() {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isEdit = !!existing;
+  const isRange = type === 'lavoro' && !!date && !!endDate && endDate > date;
+
+  /** Cambia il primo giorno: se il lavoro dura più giorni, sposta anche la fine (stessa durata). */
+  function changeStart(d: string) {
+    if (date && endDate && endDate > date) setEndDate(addDays(d, countDays(date, endDate) - 1));
+    setDate(d);
+  }
   const color = TYPE_INFO[type].color;
   // La scelta del tipo serve solo quando si crea dal + generale: dentro una sezione il tipo è già deciso.
   const typeFixed = isEdit || !!params.type;
@@ -83,6 +93,7 @@ export default function ItemScreen() {
       title: t,
       description: description.trim(),
       date,
+      ...(type === 'lavoro' ? { endDate: date && endDate && endDate > date ? endDate : null } : {}),
       time: tm && date ? normalizeTime(tm) : null,
       done: CHECKABLE.includes(type) ? done : false,
       clientId: WITH_CLIENT.includes(type) && !isSpesa && collab == null ? clientId : null,
@@ -235,11 +246,13 @@ export default function ItemScreen() {
         )}
 
         <View>
-          <Text style={styles.label}>Giorno</Text>
+          <Text style={styles.label}>{isRange ? 'Dal' : 'Giorno'}</Text>
           <View style={styles.seg}>
             <Pressable
               onPress={() => {
                 setDate(null);
+                setEndDate(null);
+                setShowEndCalendar(false);
                 setShowCalendar(false);
               }}
               style={[styles.segHalf, !date && styles.segUnset]}
@@ -276,17 +289,86 @@ export default function ItemScreen() {
               markedDates={{ [date]: { selected: true, selectedColor: colors.primary } }}
               theme={{ todayTextColor: colors.primary, arrowColor: colors.primary }}
               onDayPress={(d) => {
-                setDate(d.dateString);
+                changeStart(d.dateString);
                 setShowCalendar(false);
               }}
               style={{ marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}
             />
           ) : null}
+          {type === 'lavoro' && date && !isRange ? (
+            <Pressable
+              onPress={() => {
+                setEndDate(addDays(date, 1));
+                setShowCalendar(false);
+                setShowEndCalendar(true);
+              }}
+              style={({ pressed }) => [styles.moreDays, pressed && { opacity: 0.6 }]}
+              accessibilityRole="button"
+              hitSlop={6}
+            >
+              <Ionicons name="add-circle-outline" size={19} color={colors.primary} />
+              <Text style={styles.moreDaysText}>Più giorni (dal … al …)</Text>
+            </Pressable>
+          ) : null}
         </View>
+
+        {isRange ? (
+          <View>
+            <Text style={styles.label}>Al</Text>
+            <View style={styles.endRow}>
+              <Pressable
+                onPress={() => {
+                  setShowEndCalendar((s) => !s);
+                  setShowCalendar(false);
+                }}
+                style={[styles.endBtn, { backgroundColor: colors.primary }]}
+                accessibilityRole="button"
+              >
+                <Ionicons name="calendar-outline" size={19} color="#fff" />
+                <Text style={[styles.segText, { color: '#fff' }]} numberOfLines={1}>
+                  {formatPickerDate(endDate!)}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setEndDate(null);
+                  setShowEndCalendar(false);
+                }}
+                style={({ pressed }) => [styles.endClear, pressed && { opacity: 0.6 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Un giorno solo"
+              >
+                <Ionicons name="close" size={18} color={colors.muted} />
+                <Text style={styles.endClearText}>Un giorno solo</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.hint}>{countDays(date!, endDate!)} giorni: il lavoro compare in calendario in tutti questi giorni.</Text>
+            {showEndCalendar ? (
+              <Calendar
+                current={endDate!}
+                firstDay={1}
+                minDate={addDays(date!, 1)}
+                markingType="period"
+                markedDates={Object.fromEntries(
+                  daysBetween(date!, endDate!).map((d, i, all) => [
+                    d,
+                    { color: colors.primary, textColor: '#fff', startingDay: i === 0, endingDay: i === all.length - 1 },
+                  ]),
+                )}
+                theme={{ todayTextColor: colors.primary, arrowColor: colors.primary }}
+                onDayPress={(d) => {
+                  setEndDate(d.dateString);
+                  setShowEndCalendar(false);
+                }}
+                style={{ marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}
+              />
+            ) : null}
+          </View>
+        ) : null}
 
         {date && !isSpesa ? (
           <View>
-            <Text style={styles.label}>Orario (facoltativo)</Text>
+            <Text style={styles.label}>{isRange ? 'Orario di inizio (facoltativo)' : 'Orario (facoltativo)'}</Text>
             <TextInput
               value={time}
               onChangeText={(v) => {
@@ -411,6 +493,12 @@ const styles = StyleSheet.create({
   segHalf: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 11, paddingHorizontal: 6, borderRadius: 9 },
   segUnset: { backgroundColor: unscheduled.bg, borderWidth: 1, borderColor: unscheduled.border },
   segText: { fontSize: 15, fontWeight: '600' },
+  moreDays: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 10, paddingVertical: 4 },
+  moreDaysText: { fontSize: 15, fontWeight: '600', color: colors.primary },
+  endRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  endBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 13, paddingHorizontal: 6, borderRadius: 12 },
+  endClear: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 10, paddingHorizontal: 8 },
+  endClearText: { fontSize: 14, color: colors.muted, fontWeight: '600' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.card, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: colors.border },
   switchText: { fontSize: 16, color: colors.text },
   hint: { fontSize: 13, color: colors.muted, marginTop: 8 },

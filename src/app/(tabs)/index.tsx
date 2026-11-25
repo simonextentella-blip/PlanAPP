@@ -7,7 +7,7 @@ import { capitalize, formatDayMonth, formatShort, todayISO } from '../../lib/dat
 import { amountLabel, formatEuro, inWorkAccount, isToCollect, totals } from '../../lib/money';
 import { useStore } from '../../lib/store';
 import { colors, unscheduled as UNSCHEDULED } from '../../lib/theme';
-import { inCalendar, TYPE_INFO, type Item, type ItemType } from '../../lib/types';
+import { inCalendar, lastDay, onDay, TYPE_INFO, type Item, type ItemType } from '../../lib/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -62,7 +62,7 @@ function Section({
                 <Text style={styles.rowTitle} numberOfLines={1}>
                   {it.title}
                 </Text>
-                <Text style={styles.rowMeta}>{amountLabel(it) ?? (it.date && !(hideToday && it.date === todayISO()) ? formatShort(it.date, it.time) : it.time ?? '')}</Text>
+                <Text style={styles.rowMeta}>{amountLabel(it) ?? rowWhen(it, hideToday)}</Text>
                 <Avatar name={it.createdBy} size={24} />
               </View>
             ))
@@ -144,15 +144,27 @@ function plural(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`;
 }
 
+/** Quando, nelle righe della Home. Lavoro su più giorni in corso oggi: "fino a ven 27" o "ultimo giorno". */
+function rowWhen(it: Item, hideToday: boolean): string {
+  const today = todayISO();
+  if (!it.date) return it.time ?? '';
+  const end = lastDay(it)!;
+  if (end > it.date) {
+    if (hideToday && onDay(it, today)) return end === today ? 'ultimo giorno' : `fino a ${formatShort(end)}`;
+    return `${formatShort(it.date)} – ${formatShort(end)}`;
+  }
+  return !(hideToday && it.date === today) ? formatShort(it.date, it.time) : it.time ?? '';
+}
+
 export default function HomeScreen() {
   const { items, userName, clients } = useStore();
   const insets = useSafeAreaInsets();
   const today = todayISO();
 
   const openJobs = items.filter((it) => (it.type === 'lavoro' || it.type === 'todo') && !it.done);
-  const overdue = openJobs.filter((it) => it.date && it.date < today).length;
+  const overdue = openJobs.filter((it) => it.date && lastDay(it)! < today).length;
   const unplanned = openJobs.filter((it) => !it.date).length;
-  const todayItems = items.filter((it) => it.date === today && inCalendar(it));
+  const todayItems = items.filter((it) => onDay(it, today) && inCalendar(it));
   const notes = items.filter((it) => it.type === 'nota');
   const openVisits = items.filter((it) => it.type === 'sopralluogo' && !it.done);
   const pendingQuotes = items.filter((it) => it.type === 'preventivo' && !it.done);

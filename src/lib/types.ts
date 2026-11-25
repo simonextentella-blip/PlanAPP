@@ -9,6 +9,11 @@ export interface Item {
   description: string;
   /** Giorno nel formato YYYY-MM-DD; null per le note generali senza data. */
   date: string | null;
+  /**
+   * Solo lavori su più giorni: ultimo giorno (YYYY-MM-DD), dopo `date`.
+   * null/assente = lavoro di un giorno solo.
+   */
+  endDate?: string | null;
   /** Orario nel formato HH:MM, opzionale. */
   time: string | null;
   done: boolean;
@@ -150,6 +155,17 @@ export const DEFAULT_COMPANY: Company = {
 export const CALENDAR_TYPES: ItemType[] = ['sopralluogo', 'lavoro'];
 /** Niente storico: incassi, cose già fatte e altri tipi restano fuori. */
 export const inCalendar = (it: { type: ItemType; done: boolean }) => CALENDAR_TYPES.includes(it.type) && !it.done;
+
+/** Ultimo giorno di un elemento: la data di fine per i lavori su più giorni, altrimenti il giorno stesso. */
+export function lastDay(it: Pick<Item, 'date' | 'endDate'>): string | null {
+  if (!it.date) return null;
+  return it.endDate && it.endDate > it.date ? it.endDate : it.date;
+}
+
+/** L'elemento occupa questo giorno? (vale anche per i giorni in mezzo di un lavoro su più giorni) */
+export function onDay(it: Pick<Item, 'date' | 'endDate'>, day: string): boolean {
+  return !!it.date && it.date <= day && day <= lastDay(it)!;
+}
 
 /** Chiave con cui si salvano i dati fornitore di una persona (nome senza maiuscole/spazi). */
 export const personKey = (name: string) => name.trim().toLowerCase();
