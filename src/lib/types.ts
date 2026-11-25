@@ -36,6 +36,11 @@ export interface Item {
   unpaid?: boolean | null;
   /** Cliente collegato (anagrafica Clienti). */
   clientId?: string | null;
+  /**
+   * Lavoro in collaborazione (senza cliente): nome scritto a mano, anche vuoto.
+   * null/assente = non è una collaborazione.
+   */
+  collab?: string | null;
   /** Foto (riferimenti restituiti da lib/photos), aggiunte nei sopralluoghi. */
   photos?: string[] | null;
   createdBy: string;
@@ -62,6 +67,13 @@ export const CHECKABLE: ItemType[] = ['sopralluogo', 'lavoro', 'todo', 'preventi
 
 /** Tipi con un importo in euro. */
 export const WITH_AMOUNT: ItemType[] = ['lavoro', 'soldi', 'preventivo'];
+
+/** "Collaborazione con Mario", o solo "Collaborazione" se il nome è vuoto; undefined se non è una collaborazione. */
+export function collabLabel(item: Pick<Item, 'collab'>): string | undefined {
+  if (item.collab == null) return undefined;
+  const name = item.collab.trim();
+  return name ? `Collaborazione con ${name}` : 'Collaborazione';
+}
 
 /** Come si chiama lo stato "fatto" per ogni tipo. */
 export function doneLabel(type: ItemType): string {

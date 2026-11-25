@@ -6,7 +6,7 @@ import { amountLabel } from '../lib/money';
 import { formatCardDate, todayISO } from '../lib/dates';
 import { useStore } from '../lib/store';
 import { colors, unscheduled as UNSCHEDULED } from '../lib/theme';
-import { chainPhotos, CHECKABLE, countPhotos, TYPE_INFO, type Item, type ItemType } from '../lib/types';
+import { chainPhotos, CHECKABLE, collabLabel, countPhotos, TYPE_INFO, type Item, type ItemType } from '../lib/types';
 
 const UNSCHEDULED_LABEL: Partial<Record<ItemType, string>> = {
   lavoro: 'Scegli una data',
@@ -33,7 +33,7 @@ export function ItemCard({ item, showDate = false, hideType = false }: { item: I
   const meta = [
     showDate && item.date ? formatCardDate(item.date) : null,
     item.time,
-    client?.name,
+    client?.name ?? (item.title === collabLabel(item) ? null : collabLabel(item)),
     amountLabel(item),
   ]
     .filter(Boolean)
