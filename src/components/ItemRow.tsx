@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { formatPickerDate } from '../lib/dates';
+import { formatPickerDate, formatRange } from '../lib/dates';
 import { formatEuro } from '../lib/money';
 import { useStore } from '../lib/store';
 import { colors, unscheduled as UNSCHEDULED } from '../lib/theme';
-import { chainPhotos, collabLabel, countPhotos, TYPE_INFO, type Item } from '../lib/types';
+import { chainPhotos, collabLabel, countPhotos, lastDay, TYPE_INFO, type Item } from '../lib/types';
 
 /** "Valentina Rossi – Abbattimento" → "Abbattimento"; "Lavoro – Valentina Rossi" → "". */
 function stripClient(title: string, clientName: string | undefined, typeLabel: string): string {
@@ -37,7 +37,8 @@ export function ItemRow({ item, first, last }: { item: Item; first: boolean; las
   const main = who ?? item.title;
   // Se il titolo è solo "Lavoro – Cliente", sotto mettiamo la prima riga delle note.
   const what = (who ? stripClient(item.title, who, info.label) : '') || (item.description ?? '').split('\n')[0].trim();
-  const when = item.date ? [formatPickerDate(item.date), item.time].filter(Boolean).join(' · ') : '';
+  const end = lastDay(item);
+  const when = item.date ? [end !== item.date ? formatRange(item.date, end!) : formatPickerDate(item.date), item.time].filter(Boolean).join(' · ') : '';
   const sub = [when, what].filter(Boolean).join(' · ');
   const toCollect = item.type === 'lavoro' && item.done && !!item.unpaid;
 

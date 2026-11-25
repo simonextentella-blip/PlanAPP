@@ -5,10 +5,10 @@ import { Calendar } from 'react-native-calendars';
 import { EmptyState } from '../../components/EmptyState';
 import { Fab } from '../../components/Fab';
 import { ItemCard } from '../../components/ItemCard';
-import { formatRelative, todayISO } from '../../lib/dates';
+import { daysBetween, formatRelative, todayISO } from '../../lib/dates';
 import { useStore } from '../../lib/store';
 import { colors } from '../../lib/theme';
-import { CALENDAR_TYPES, inCalendar, TYPE_INFO, type ItemType } from '../../lib/types';
+import { CALENDAR_TYPES, inCalendar, lastDay, onDay, TYPE_INFO, type ItemType } from '../../lib/types';
 
 export default function CalendarScreen() {
   const { items } = useStore();
@@ -18,7 +18,8 @@ export default function CalendarScreen() {
     const byDay: Record<string, Set<ItemType>> = {};
     for (const it of items) {
       if (!it.date || !inCalendar(it)) continue;
-      (byDay[it.date] ??= new Set()).add(it.type);
+      // Lavori su più giorni: il pallino va su ogni giorno, dal primo all'ultimo.
+      for (const day of daysBetween(it.date, lastDay(it)!)) (byDay[day] ??= new Set()).add(it.type);
     }
     const out: Record<string, { dots: { key: string; color: string }[]; selected?: boolean; selectedColor?: string }> = {};
     for (const [day, types] of Object.entries(byDay)) {
@@ -28,7 +29,7 @@ export default function CalendarScreen() {
     return out;
   }, [items, selected]);
 
-  const dayItems = items.filter((it) => it.date === selected && inCalendar(it));
+  const dayItems = items.filter((it) => onDay(it, selected) && inCalendar(it));
 
   return (
     <View style={styles.container}>
