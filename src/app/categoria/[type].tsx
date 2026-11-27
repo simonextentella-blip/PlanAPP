@@ -153,17 +153,17 @@ function CategoryScreen({ type }: { type: ItemType }) {
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.accName} numberOfLines={1}>{a.name}</Text>
-                  <Text style={styles.accSub}>Saldo {formatEuro(t.saldo)}</Text>
+                  <Text style={styles.accSub}>Aggiunti {formatEuro(t.saldo)}</Text>
                   <Text style={styles.accSub}>Spese {formatEuro(t.spese)}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.accLabel}>RIMANE</Text>
+                  <Text style={styles.accLabel}>SALDO</Text>
                   <Text style={[styles.accValue, { color: t.rimane < 0 ? colors.danger : '#16A34A' }]}>{formatEuro(t.rimane)}</Text>
                 </View>
               </Pressable>
             );
           }}
-          ListEmptyComponent={<EmptyState text="Nessun conto. Tocca + per aprire il primo: gli dai un nome e un saldo, poi ci aggiungi le spese." />}
+          ListEmptyComponent={<EmptyState text="Nessun conto. Tocca + per aprire il primo: gli dai un nome e dei soldi, poi ci aggiungi le spese (e altri soldi quando servono)." />}
           contentContainerStyle={{ paddingTop: 6, paddingBottom: 100 }}
         />
       ) : (

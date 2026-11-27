@@ -10,7 +10,7 @@ import { categoryIcon, SPESA_CATEGORIES, spesaCategory } from '../lib/spese';
 import { useStore } from '../lib/store';
 import { colors } from '../lib/theme';
 
-/** Un conto lavori: saldo, spese, quanto rimane e l'elenco dei movimenti. */
+/** Un conto lavori: soldi aggiunti, spese, saldo (aggiunti − spese) e l'elenco dei movimenti. */
 export default function AccountScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { items, getAccount } = useStore();
@@ -30,8 +30,8 @@ export default function AccountScreen() {
   const t = accountTotals(items, account.id);
   // Più recenti in alto.
   const list = items.filter((it) => it.type === 'soldi' && it.account === account.id).reverse();
+  // Soldi aggiunti al conto (saldo iniziale e ricariche): si sommano tutti.
   const balanceItems = list.filter((it) => it.direction === 'entrata');
-  const balanceItem = balanceItems[balanceItems.length - 1];
   // Spese raggruppate per categoria, nell'ordine delle categorie pronte.
   const spese = list.filter((it) => it.direction === 'uscita');
   const groups = SPESA_CATEGORIES.map((c) => {
@@ -39,9 +39,8 @@ export default function AccountScreen() {
     return { label: c.label, rows, total: rows.reduce((s, it) => s + (it.amount ?? 0), 0) };
   }).filter((g) => g.rows.length);
 
-  function openBalance() {
-    if (balanceItem) router.push({ pathname: '/item', params: { id: balanceItem.id } });
-    else router.push({ pathname: '/item', params: { type: 'soldi', account: account!.id, direction: 'entrata', title: 'Saldo iniziale' } });
+  function addMoney() {
+    router.push({ pathname: '/item', params: { type: 'soldi', account: account!.id, direction: 'entrata', title: balanceItems.length ? '' : 'Saldo iniziale' } });
   }
 
   return (
@@ -58,13 +57,13 @@ export default function AccountScreen() {
       />
       <View style={styles.header}>
         <View style={styles.stats}>
-          <Stat label="Saldo" value={formatEuro(t.saldo)} color={colors.text} />
+          <Stat label="Aggiunti" value={formatEuro(t.saldo)} color={colors.text} />
           <Stat label="Spese" value={formatEuro(t.spese)} color={colors.danger} />
-          <Stat label="Rimane" value={formatEuro(t.rimane)} color={t.rimane < 0 ? colors.danger : '#16A34A'} />
+          <Stat label="Saldo" value={formatEuro(t.rimane)} color={t.rimane < 0 ? colors.danger : '#16A34A'} />
         </View>
-        <Pressable onPress={openBalance} style={({ pressed }) => [styles.balanceBtn, pressed && { opacity: 0.7 }]} accessibilityRole="button">
-          <Ionicons name={balanceItem ? 'create-outline' : 'wallet-outline'} size={18} color={colors.primary} />
-          <Text style={styles.balanceText}>{balanceItem ? 'Modifica saldo' : 'Imposta il saldo del conto'}</Text>
+        <Pressable onPress={addMoney} style={({ pressed }) => [styles.balanceBtn, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+          <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+          <Text style={styles.balanceText}>Aggiungi soldi al conto</Text>
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={{ paddingTop: 10, paddingBottom: 100 }}>
@@ -103,7 +102,7 @@ export default function AccountScreen() {
         })}
         {balanceItems.length ? (
           <>
-            <Text style={styles.sectionTitle}>SALDO</Text>
+            <Text style={styles.sectionTitle}>SOLDI AGGIUNTI · {formatEuro(t.saldo)}</Text>
             {balanceItems.map((it) => (
               <ItemCard key={it.id} item={it} showDate hideType />
             ))}
