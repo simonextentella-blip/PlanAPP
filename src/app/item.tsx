@@ -96,7 +96,7 @@ export default function ItemScreen() {
       ...(type === 'lavoro' ? { endDate: date && endDate && endDate > date ? endDate : null } : {}),
       time: tm && date ? normalizeTime(tm) : null,
       done: CHECKABLE.includes(type) ? done : false,
-      clientId: WITH_CLIENT.includes(type) && !isSpesa && collab == null ? clientId : null,
+      clientId: WITH_CLIENT.includes(type) && !account && collab == null ? clientId : null,
       ...(type === 'lavoro' ? { collab } : {}),
       amount: parsed,
       direction: type === 'soldi' ? direction : null,
@@ -181,7 +181,7 @@ export default function ItemScreen() {
           </Pressable>
         ) : null}
 
-        {WITH_CLIENT.includes(type) && !isSpesa ? (
+        {WITH_CLIENT.includes(type) && !account ? (
           <View>
             <Text style={styles.label}>{type === 'lavoro' ? 'Per chi' : 'Cliente'}</Text>
             {type === 'lavoro' ? (
