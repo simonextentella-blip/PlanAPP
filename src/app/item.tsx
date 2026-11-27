@@ -59,7 +59,7 @@ export default function ItemScreen() {
   const [amount, setAmount] = useState(existing?.amount != null ? formatEuro(existing.amount).replace('€ ', '') : '');
   const [photos, setPhotos] = useState<string[]>(existing?.photos ?? []);
   const [direction, setDirection] = useState<Direction>(existing?.direction ?? params.direction ?? 'entrata');
-  // Movimento del Conto lavori: entrata = saldo messo sul conto, uscita = spesa.
+  // Movimento del Conto lavori: entrata = soldi aggiunti al conto (anche più volte), uscita = spesa.
   const account: string | null = type === 'soldi' ? existing?.account ?? params.account ?? null : null;
   const isSpesa = !!account && direction === 'uscita';
   const [showCalendar, setShowCalendar] = useState(false);
@@ -81,7 +81,7 @@ export default function ItemScreen() {
   function save() {
     const collab = type === 'lavoro' && isCollab ? collabName.trim() : null;
     const chosen = clientId && collab == null ? getClient(clientId) : undefined;
-    const t = title.trim() || (collab != null ? collabLabel({ collab })! : chosen ? `${TYPE_INFO[type].label} – ${chosen.name}` : '');
+    const t = title.trim() || (account && direction === 'entrata' ? 'Soldi aggiunti' : '') || (collab != null ? collabLabel({ collab })! : chosen ? `${TYPE_INFO[type].label} – ${chosen.name}` : '');
     if (!t) return setError(isSpesa ? 'Scegli una categoria: Pranzo, Benzina, Materiali o Altro.' : 'Scrivi un titolo (o scegli un cliente).');
     const tm = time.trim();
     if (tm && !isValidTime(tm)) return setError('Orario non valido: usa il formato 09:30.');
@@ -131,7 +131,7 @@ export default function ItemScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen
         options={{
-          title: account ? (direction === 'uscita' ? (isEdit ? 'Modifica spesa' : 'Nuova spesa') : 'Saldo del conto') : isEdit ? 'Modifica' : typeFixed ? newTitle(type) : 'Nuovo',
+          title: account ? (direction === 'uscita' ? (isEdit ? 'Modifica spesa' : 'Nuova spesa') : isEdit ? 'Soldi aggiunti' : 'Aggiungi soldi') : isEdit ? 'Modifica' : typeFixed ? newTitle(type) : 'Nuovo',
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={10}>
               <Text style={styles.headerBtn}>Annulla</Text>
@@ -237,7 +237,7 @@ export default function ItemScreen() {
               setTitle(v);
               setError('');
             }}
-            placeholder={account ? (direction === 'uscita' ? 'Es. Benzina furgone, corde nuove' : 'Saldo iniziale') : PLACEHOLDERS[type]}
+            placeholder={account ? (direction === 'uscita' ? 'Es. Benzina furgone, corde nuove' : 'Es. Saldo iniziale, ricarica (facoltativo)') : PLACEHOLDERS[type]}
             placeholderTextColor={colors.muted}
             style={styles.input}
             autoFocus={!isEdit}
@@ -401,7 +401,7 @@ export default function ItemScreen() {
 
         {WITH_AMOUNT.includes(type) ? (
           <View>
-            <Text style={styles.label}>{account ? (direction === 'uscita' ? 'Quanto hai speso' : 'Saldo del conto') : 'Importo'}</Text>
+            <Text style={styles.label}>{account ? (direction === 'uscita' ? 'Quanto hai speso' : 'Quanti soldi aggiungi') : 'Importo'}</Text>
             {type === 'soldi' && !account ? (
               <View style={[styles.chips, { marginBottom: 10 }]}>
                 <Chip label="Entrata" color="#16A34A" active={direction === 'entrata'} onPress={() => setDirection('entrata')} />
